@@ -1,1 +1,713 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Executivo de Separação & Curva ABC | Paulicomp</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Chart.js DataLabels Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <!-- SheetJS (xlsx) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- html2pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .toast-animate { animation: fadeInDown 0.3s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-amber-600 selection:text-white">
 
+    <!-- Container de Notificações Toast -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md w-full pointer-events-none"></div>
+
+    <!-- Header Executivo Superior -->
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            
+            <!-- Bloco de Logo & Identificação -->
+            <div class="flex items-center gap-4">
+                <div class="relative group cursor-pointer" id="logoWrapper" title="Logotipo da Empresa">
+                    <div class="h-12 px-3 py-1 bg-transparent border border-slate-700/60 rounded-xl flex items-center justify-center transition-all group-hover:border-amber-500 group-hover:bg-slate-800/40">
+                        <img id="logoImage" src="./logo-empresa.png" alt="Logotipo Empresa" class="h-9 w-auto max-w-[170px] object-contain" onerror="this.classList.add('hidden'); document.getElementById('logoDefaultSvg').classList.remove('hidden');">
+                        <div id="logoDefaultSvg" class="hidden flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-600 via-orange-500 to-amber-400 flex items-center justify-center shadow-md shadow-amber-500/20">
+                                <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                                </svg>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-base font-black tracking-wider text-white uppercase font-mono leading-none">PAULICOMP</span>
+                                <span class="text-[9px] font-bold tracking-widest text-amber-400 uppercase leading-tight">SEPARAÇÃO & PICKING</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hidden sm:block border-l border-slate-800 pl-4">
+                    <h1 class="text-sm font-bold text-slate-100 tracking-tight">Painel Executivo de Separação, Picking & Curva ABC</h1>
+                    <p class="text-xs text-slate-400">Gestão Multi-Filial • PAULICOMP SP | PAULICOMP SUL | COMP TRADE</p>
+                </div>
+            </div>
+
+            <!-- Botões Topo -->
+            <div class="flex flex-wrap items-center gap-2.5">
+                <button id="btnPdfReport" class="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold px-3.5 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-all active:scale-95 border border-red-500/30">
+                    <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <span>Relatório PDF</span>
+                </button>
+
+                <button id="btnOpenModal" class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-2 transition-all">
+                    <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7M4 7c0-2 1.5-3 3.5-3h9c2 0 3.5 1 3.5 3M4 7h16m-5 4h.01M9 11h.01M9 15h6"/>
+                    </svg>
+                    <span>Banco de Dados (<span id="headerRowCount">0</span>)</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Barra de Filtros Integrada (Mês, Filial, Curva ABC e Busca) -->
+        <div class="bg-slate-900 border-t border-slate-800/80 px-4 sm:px-6 lg:px-8 py-2.5">
+            <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    
+                    <!-- Filtro Mês -->
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-semibold text-slate-400">Mês:</span>
+                        <select id="filterMes" class="bg-slate-800 border border-amber-500/50 text-white text-xs font-bold rounded-md px-2.5 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer">
+                            <option value="ALL">Todos os Meses</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro Filial -->
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-semibold text-slate-400">Filial:</span>
+                        <select id="filterFilial" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-md px-2.5 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer">
+                            <option value="ALL">Todas as Filiais</option>
+                            <option value="COMP TRADE">COMP TRADE</option>
+                            <option value="PAULICOMP SP">PAULICOMP SP</option>
+                            <option value="PAULICOMP SUL">PAULICOMP SUL</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro Curva ABC -->
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-semibold text-slate-400">Curva:</span>
+                        <select id="filterCurva" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-md px-2.5 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer">
+                            <option value="ALL">Todas (A, B, C)</option>
+                            <option value="Classe A">Classe A (Alto Giro)</option>
+                            <option value="Classe B">Classe B (Médio Giro)</option>
+                            <option value="Classe C">Classe C (Baixo Giro)</option>
+                        </select>
+                    </div>
+
+                    <!-- Input de Busca -->
+                    <div class="relative">
+                        <input type="text" id="searchInput" placeholder="Buscar SKU ou Produto..." class="bg-slate-800/90 border border-slate-700 text-white text-xs rounded-md pl-8 pr-3 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none w-52">
+                        <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="text-[11px] font-semibold text-emerald-300 bg-emerald-950/80 border border-emerald-800/60 px-3 py-1 rounded-full flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Multi-Filial Integrado (Tiny / Olist)</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Área Principal -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1 w-full">
+        
+        <!-- Cards KPIs Superiores -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-400"></div>
+                <div class="flex items-center justify-between text-slate-400 mb-1">
+                    <span class="text-[11px] font-bold uppercase tracking-wider">Total de Peças (Picking)</span>
+                    <span class="text-amber-400 bg-amber-950/80 px-2 py-0.5 rounded text-[10px] font-bold">Volume Físico</span>
+                </div>
+                <div class="text-3xl font-extrabold text-white mt-1" id="kpiTotalPecas">0</div>
+                <div class="text-xs text-slate-400 mt-2" id="kpiPecasSub">Consolidado do período</div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-400"></div>
+                <div class="flex items-center justify-between text-slate-400 mb-1">
+                    <span class="text-[11px] font-bold uppercase tracking-wider">Pedidos de Venda</span>
+                    <span class="text-blue-400 bg-blue-950/80 px-2 py-0.5 rounded text-[10px] font-bold">Ordens</span>
+                </div>
+                <div class="text-3xl font-extrabold text-white mt-1" id="kpiTotalPedidos">0</div>
+                <div class="text-xs text-slate-400 mt-2">Atendidos no período</div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-400"></div>
+                <div class="flex items-center justify-between text-slate-400 mb-1">
+                    <span class="text-[11px] font-bold uppercase tracking-wider">Linhas de SKUs Ativas</span>
+                    <span class="text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded text-[10px] font-bold">Endereços</span>
+                </div>
+                <div class="text-3xl font-extrabold text-white mt-1" id="kpiTotalSkus">0</div>
+                <div class="text-xs text-slate-400 mt-2">Posições de estoque acessadas</div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500"></div>
+                <div class="flex items-center justify-between text-slate-400 mb-1">
+                    <span class="text-[11px] font-bold uppercase tracking-wider">Curva A (Alto Impacto)</span>
+                    <span class="text-purple-400 bg-purple-950/80 px-2 py-0.5 rounded text-[10px] font-bold">Prioridade Máxima</span>
+                </div>
+                <div class="text-2xl font-extrabold text-white mt-1" id="kpiCurvaA">0 SKUs (0%)</div>
+                <div class="text-xs text-slate-400 mt-2">Concentração de demanda</div>
+            </div>
+        </div>
+
+        <!-- Linha Central: 3 Gráficos (Ritmo por Dia, Top 10 SKUs, Curva ABC) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Gráfico 1: Ritmo por Dia (5 colunas) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 lg:col-span-4 shadow-sm flex flex-col">
+                <div class="pb-3 mb-2 border-b border-slate-800">
+                    <h2 class="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 bg-amber-500 rounded-sm"></span>
+                        Ritmo por Dia (Peças Separadas)
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Volumetria física diária de picking</p>
+                </div>
+                <div class="relative flex-1 min-h-[280px]">
+                    <canvas id="chartRitmoDia"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico 2: Top 10 SKUs (5 colunas) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 lg:col-span-5 shadow-sm flex flex-col">
+                <div class="pb-3 mb-2 border-b border-slate-800">
+                    <h2 class="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 bg-orange-500 rounded-sm"></span>
+                        Top 10 SKUs Mais Separados
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Itens de maior giro no estoque físico</p>
+                </div>
+                <div class="relative flex-1 min-h-[280px]">
+                    <canvas id="chartTopSkus"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico 3: Curva ABC (3 colunas) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 lg:col-span-3 shadow-sm flex flex-col">
+                <div class="pb-3 mb-2 border-b border-slate-800">
+                    <h2 class="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 bg-purple-500 rounded-sm"></span>
+                        Curva ABC (Giro)
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Concentração do volume (%)</p>
+                </div>
+                <div class="relative flex-1 min-h-[280px] flex items-center justify-center">
+                    <canvas id="chartCurvaAbc"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Romaneio Operacional de Picking -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+            <div class="p-4 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-900/60">
+                <div>
+                    <h2 class="text-sm font-bold text-white uppercase tracking-wide">Romaneio Operacional de Picking (Multi-Filial)</h2>
+                    <p class="text-xs text-slate-400">Consolidação por Filial, Data, Pedido, SKU, Descrição e Curva de Prioridade</p>
+                </div>
+                <span class="text-xs font-semibold text-slate-400 bg-slate-800 px-3 py-1 rounded-full border border-slate-700" id="tableRecordCount">Mostrando 0 registros</span>
+            </div>
+            <div class="overflow-x-auto max-h-96">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-950/80 uppercase font-bold text-slate-400 sticky top-0 border-b border-slate-800">
+                        <tr>
+                            <th class="px-4 py-3">Filial</th>
+                            <th class="px-4 py-3">Data</th>
+                            <th class="px-4 py-3">Pedido</th>
+                            <th class="px-4 py-3">Código (SKU)</th>
+                            <th class="px-4 py-3">Descrição do Produto</th>
+                            <th class="px-4 py-3 text-center">Qtd</th>
+                            <th class="px-4 py-3 text-center">Curva</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-800/60 font-sans"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Banco de Dados & Importação -->
+    <div id="dataModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 bg-amber-600/20 text-amber-400 rounded-xl border border-amber-500/30">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7M4 7c0-2 1.5-3 3.5-3h9c2 0 3.5 1 3.5 3M4 7h16"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white">Banco de Dados de Separação</h3>
+                        <p class="text-xs text-slate-400">Importe relatórios de itens ou pedidos do Tiny ERP / Olist</p>
+                    </div>
+                </div>
+                <button id="btnCloseModal" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition text-lg">&times;</button>
+            </div>
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 space-y-3">
+                <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider">Como Importar Relatórios:</h4>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    Você pode selecionar arquivos <b>.xls</b> ou <b>.xlsx</b> de qualquer uma das filiais (ex: <i>pedidos_venda_COMP TRADE_AGO.xls</i>). Os dados são sincronizados no banco e salvos localmente.
+                </p>
+                <div class="pt-2 flex flex-wrap gap-2">
+                    <label class="cursor-pointer bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold px-4 py-2.5 rounded-lg flex items-center gap-2 shadow transition active:scale-95">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        <span>Importar Planilhas (.xls / .xlsx)</span>
+                        <input type="file" id="modalFileInput" accept=".xls,.xlsx,.csv" multiple class="hidden">
+                    </label>
+                    <button id="btnExportExcel" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition">Exportar Romaneio Excel</button>
+                    <button id="btnSyncCloud" class="bg-amber-900/60 hover:bg-amber-800 text-amber-300 border border-amber-700 text-xs font-semibold px-3 py-2.5 rounded-lg transition ml-auto">Forçar Sincronização Neon</button>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3 text-center">
+                <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold">Total Registros</span>
+                    <p class="text-lg font-bold text-white" id="modalTotalRows">0</p>
+                </div>
+                <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold">Meses Carregados</span>
+                    <p class="text-lg font-bold text-amber-400" id="modalTotalMonths">0</p>
+                </div>
+                <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold">Filiais Ativas</span>
+                    <p class="text-lg font-bold text-emerald-400" id="modalTotalBranches">3</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de Lógica e Renderização -->
+    <script>
+        Chart.register(ChartDataLabels);
+
+        // Base Inicial dos Dados de Separação
+        let database = [
+            {"filial":"COMP TRADE","data":"2026-08-01","data_fmt":"01/08/2026","pedido":"10710","sku":"438722-001","produto":"Cabo De Força Tripolar Mickey Padrão BR 1,8m","qtd":1},
+            {"filial":"PAULICOMP SP","data":"2026-08-02","data_fmt":"02/08/2026","pedido":"10711","sku":"767888","produto":"Lamina De Ralar Fino Multiprocessador Philco","qtd":1},
+            {"filial":"PAULICOMP SUL","data":"2026-08-02","data_fmt":"02/08/2026","pedido":"10712","sku":"765957","produto":"Teclado De Membrana Para Micro-ondas Philco","qtd":1},
+            {"filial":"COMP TRADE","data":"2026-08-02","data_fmt":"02/08/2026","pedido":"10715","sku":"767888","produto":"Lamina De Ralar Fino Multiprocessador Philco","qtd":1},
+            {"filial":"PAULICOMP SP","data":"2026-08-03","data_fmt":"03/08/2026","pedido":"10716","sku":"438722-001","produto":"Cabo De Força Tripolar Mickey Padrão BR 1,8m","qtd":1},
+            {"filial":"PAULICOMP SUL","data":"2026-08-03","data_fmt":"03/08/2026","pedido":"10719","sku":"438722-001","produto":"Cabo De Força Tripolar Mickey Padrão BR 1,8m","qtd":1},
+            {"filial":"COMP TRADE","data":"2026-08-04","data_fmt":"04/08/2026","pedido":"10720","sku":"760587","produto":"Motor Ca 220V 50W YJ62/300 Para Air Fry","qtd":1},
+            {"filial":"PAULICOMP SP","data":"2026-08-04","data_fmt":"04/08/2026","pedido":"10721","sku":"765002","produto":"Carcaça Do Multiprocessador Philco All In One","qtd":1},
+            {"filial":"PAULICOMP SUL","data":"2026-08-04","data_fmt":"04/08/2026","pedido":"10722","sku":"767888","produto":"Lamina De Ralar Fino Multiprocessador Philco","qtd":1},
+            {"filial":"COMP TRADE","data":"2026-08-05","data_fmt":"05/08/2026","pedido":"10724","sku":"761082","produto":"Bandeja Para Cesto De Air Fry Fama FFR2 2,9L","qtd":1},
+            {"filial":"PAULICOMP SP","data":"2026-08-05","data_fmt":"05/08/2026","pedido":"10725","sku":"440980010100-SC","produto":"Calculadora Financeira HP 12C Gold 120 Funções","qtd":2},
+            {"filial":"PAULICOMP SUL","data":"2026-08-06","data_fmt":"06/08/2026","pedido":"10732","sku":"765004","produto":"Botão Knob Multiprocessador All In One Philco","qtd":1},
+            {"filial":"COMP TRADE","data":"2026-08-07","data_fmt":"07/08/2026","pedido":"10740","sku":"440980010100-SC","produto":"Calculadora Financeira HP 12C Gold 120 Funções","qtd":8},
+            {"filial":"PAULICOMP SP","data":"2026-08-11","data_fmt":"11/08/2026","pedido":"10760","sku":"757703","produto":"Bateria 14500 600mAh 3.7V Great Power","qtd":8}
+        ];
+
+        let chartRitmoDia = null, chartTopSkus = null, chartCurvaAbc = null;
+        const ptMonths = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto toast-animate p-4 rounded-xl shadow-2xl border flex items-start gap-3 text-xs ${
+                type === 'success' ? 'bg-slate-900/95 border-emerald-500 text-emerald-200' : 'bg-slate-900/95 border-amber-500 text-amber-200'
+            }`;
+            toast.innerHTML = `<div class="flex-1 font-medium">${message}</div><button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white">&times;</button>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.classList.add('opacity-0'); setTimeout(() => toast.remove(), 400); }, 4000);
+        }
+
+        // Calcula a Curva ABC dinamicamente sobre a lista de itens
+        function computeAbcCurve(items) {
+            const skuMap = {};
+            items.forEach(d => {
+                skuMap[d.sku] = (skuMap[d.sku] || 0) + (Number(d.qtd) || 1);
+            });
+            const sorted = Object.entries(skuMap).sort((a,b) => b[1] - a[1]);
+            const totalQtd = sorted.reduce((acc, curr) => acc + curr[1], 0);
+
+            let accumulated = 0;
+            const abcMap = {};
+            sorted.forEach(([sku, qtd]) => {
+                accumulated += qtd;
+                const share = (accumulated / totalQtd) * 100;
+                if (share <= 80) abcMap[sku] = 'Classe A';
+                else if (share <= 95) abcMap[sku] = 'Classe B';
+                else abcMap[sku] = 'Classe C';
+            });
+            return { abcMap, skuVolumeMap: skuMap, totalQtd };
+        }
+
+        function populatePeriodFilter() {
+            const select = document.getElementById('filterMes');
+            if (!select) return;
+            const monthSet = new Set();
+            database.forEach(d => {
+                if (d.data && d.data.length >= 7) monthSet.add(d.data.substring(0, 7));
+            });
+            const sortedMonths = Array.from(monthSet).sort().reverse();
+            select.innerHTML = '<option value="ALL">Todos os Meses</option>';
+            sortedMonths.forEach(ym => {
+                const [year, month] = ym.split('-');
+                const monthName = ptMonths[parseInt(month, 10) - 1];
+                const opt = document.createElement('option');
+                opt.value = ym;
+                opt.innerText = `${monthName}/${year}`;
+                select.appendChild(opt);
+            });
+        }
+
+        function updateModalStats() {
+            const totalEl = document.getElementById('modalTotalRows');
+            const monthEl = document.getElementById('modalTotalMonths');
+            const headEl = document.getElementById('headerRowCount');
+            if (totalEl) totalEl.innerText = database.length.toLocaleString('pt-BR');
+            if (monthEl) monthEl.innerText = new Set(database.map(d => d.data ? d.data.substring(0,7) : '')).size;
+            if (headEl) headEl.innerText = database.length.toLocaleString('pt-BR');
+        }
+
+        function updateDashboard() {
+            const fMes = document.getElementById('filterMes')?.value || 'ALL';
+            const fFilial = document.getElementById('filterFilial')?.value || 'ALL';
+            const fCurva = document.getElementById('filterCurva')?.value || 'ALL';
+            const search = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
+
+            // 1. Calcula Curva ABC no universo dos filtros de Mês e Filial
+            const preFiltered = database.filter(d => {
+                const matchMes = (fMes === 'ALL' || (d.data && d.data.startsWith(fMes)));
+                const matchFilial = (fFilial === 'ALL' || d.filial === fFilial);
+                return matchMes && matchFilial;
+            });
+            const { abcMap } = computeAbcCurve(preFiltered);
+
+            // 2. Aplica filtro de Curva e Busca
+            const filtered = preFiltered.filter(d => {
+                const curva = abcMap[d.sku] || 'Classe C';
+                const matchCurva = (fCurva === 'ALL' || curva === fCurva);
+                const matchSearch = (!search || (d.produto && d.produto.toLowerCase().includes(search)) || (d.sku && d.sku.toLowerCase().includes(search)) || (d.pedido && d.pedido.includes(search)));
+                return matchCurva && matchSearch;
+            });
+
+            // KPIs
+            const totalPecas = filtered.reduce((acc, curr) => acc + (Number(curr.qtd) || 1), 0);
+            const totalPedidos = new Set(filtered.map(d => d.pedido)).size;
+            const totalSkus = new Set(filtered.map(d => d.sku)).size;
+            
+            const skusA = Object.keys(abcMap).filter(k => abcMap[k] === 'Classe A').length;
+            const pctA = totalSkus > 0 ? Math.round((skusA / totalSkus) * 100) : 0;
+
+            document.getElementById('kpiTotalPecas').innerText = totalPecas.toLocaleString('pt-BR');
+            document.getElementById('kpiTotalPedidos').innerText = totalPedidos.toLocaleString('pt-BR');
+            document.getElementById('kpiTotalSkus').innerText = totalSkus.toLocaleString('pt-BR');
+            document.getElementById('kpiCurvaA').innerText = `${skusA} SKUs (${pctA}%)`;
+            updateModalStats();
+
+            // GRÁFICO 1: Ritmo por Dia
+            const dateMap = {};
+            filtered.forEach(d => {
+                const dt = d.data_fmt || 'Sem Data';
+                dateMap[dt] = (dateMap[dt] || 0) + (Number(d.qtd) || 1);
+            });
+            const sortedDates = Object.keys(dateMap).sort((a,b) => {
+                if (a === 'Sem Data') return -1;
+                const [d1,m1,y1] = a.split('/').map(Number);
+                const [d2,m2,y2] = b.split('/').map(Number);
+                return new Date(y1,m1-1,d1) - new Date(y2,m2-1,d2);
+            });
+
+            if (chartRitmoDia) chartRitmoDia.destroy();
+            const ctx1 = document.getElementById('chartRitmoDia');
+            if (ctx1) {
+                chartRitmoDia = new Chart(ctx1.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: sortedDates.map(d => d.substring(0,5)),
+                        datasets: [{
+                            data: sortedDates.map(d => dateMap[d]),
+                            backgroundColor: '#f59e0b',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        layout: { padding: { top: 18 } },
+                        plugins: {
+                            legend: { display: false },
+                            datalabels: { anchor: 'end', align: 'top', color: '#FFFFFF', font: { weight: 'bold', size: 9 }, formatter: (v) => v > 0 ? v : '' }
+                        },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 9 } } },
+                            y: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8', font: { size: 9 } } }
+                        }
+                    }
+                });
+            }
+
+            // GRÁFICO 2: Top 10 SKUs Mais Separados
+            const skuVolMap = {};
+            filtered.forEach(d => {
+                skuVolMap[d.sku] = (skuVolMap[d.sku] || 0) + (Number(d.qtd) || 1);
+            });
+            const sortedSkus = Object.entries(skuVolMap).sort((a,b) => b[1] - a[1]).slice(0, 10);
+
+            if (chartTopSkus) chartTopSkus.destroy();
+            const ctx2 = document.getElementById('chartTopSkus');
+            if (ctx2) {
+                chartTopSkus = new Chart(ctx2.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: sortedSkus.map(s => s[0].substring(0, 10)),
+                        datasets: [{
+                            data: sortedSkus.map(s => s[1]),
+                            backgroundColor: '#ea580c',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        layout: { padding: { top: 18 } },
+                        plugins: {
+                            legend: { display: false },
+                            datalabels: { anchor: 'end', align: 'top', color: '#FFFFFF', font: { weight: 'bold', size: 9 }, formatter: (v) => `${v} un` }
+                        },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 9 }, maxRotation: 45 } },
+                            y: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8', font: { size: 9 } } }
+                        }
+                    }
+                });
+            }
+
+            // GRÁFICO 3: Curva ABC (Giro)
+            let qtdA = 0, qtdB = 0, qtdC = 0;
+            filtered.forEach(d => {
+                const c = abcMap[d.sku] || 'Classe C';
+                const q = Number(d.qtd) || 1;
+                if (c === 'Classe A') qtdA += q;
+                else if (c === 'Classe B') qtdB += q;
+                else qtdC += q;
+            });
+
+            if (chartCurvaAbc) chartCurvaAbc.destroy();
+            const ctx3 = document.getElementById('chartCurvaAbc');
+            if (ctx3) {
+                chartCurvaAbc = new Chart(ctx3.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Classe A (80%)', 'Classe B (15%)', 'Classe C (5%)'],
+                        datasets: [{
+                            data: totalPecas === 0 ? [1,1,1] : [qtdA, qtdB, qtdC],
+                            backgroundColor: ['#f59e0b', '#3b82f6', '#a855f7'],
+                            borderColor: '#0f172a', borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: '#FFFFFF', font: { size: 10, weight: '600' }, padding: 6 } },
+                            datalabels: {
+                                color: '#FFFFFF', font: { weight: 'bold', size: 10 },
+                                formatter: (val) => totalPecas > 0 ? `${((val / totalPecas) * 100).toFixed(0)}%` : ''
+                            }
+                        },
+                        cutout: '58%'
+                    }
+                });
+            }
+
+            // TABELA
+            const tbody = document.getElementById('tableBody');
+            if (tbody) {
+                tbody.innerHTML = '';
+                document.getElementById('tableRecordCount').innerText = `Mostrando ${Math.min(50, filtered.length)} de ${filtered.length} registros`;
+                filtered.slice(0, 50).forEach(row => {
+                    const c = abcMap[row.sku] || 'Classe C';
+                    const cClass = c === 'Classe A' ? 'bg-amber-950 text-amber-300 border border-amber-800' : (c === 'Classe B' ? 'bg-blue-950 text-blue-300 border border-blue-800' : 'bg-purple-950 text-purple-300 border border-purple-800');
+                    const filColor = row.filial === 'PAULICOMP SP' ? 'text-blue-400' : (row.filial === 'PAULICOMP SUL' ? 'text-cyan-400' : 'text-amber-400');
+
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-slate-800/60 transition-colors';
+                    tr.innerHTML = `
+                        <td class="px-4 py-2 font-bold ${filColor}">${row.filial}</td>
+                        <td class="px-4 py-2 font-mono text-slate-400">${row.data_fmt || '-'}</td>
+                        <td class="px-4 py-2 font-mono text-white font-semibold">${row.pedido || '-'}</td>
+                        <td class="px-4 py-2 font-mono text-amber-400 font-semibold">${row.sku || '-'}</td>
+                        <td class="px-4 py-2 font-medium text-white max-w-sm truncate" title="${row.produto || ''}">${row.produto || '-'}</td>
+                        <td class="px-4 py-2 text-center font-bold text-white">${row.qtd || 1} un</td>
+                        <td class="px-4 py-2 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${cClass}">${c}</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        // Importação de Planilhas Multi-Formato (Tiny ERP / Olist)
+        function processExcelFiles(files) {
+            if (!files || files.length === 0) return;
+            let filesCount = 0;
+            const newRecords = [];
+
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    try {
+                        const data = new Uint8Array(evt.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const jsonRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+                        const fname = file.name.toUpperCase();
+                        let filial = "PAULICOMP SP";
+                        if (fname.includes("SUL")) filial = "PAULICOMP SUL";
+                        else if (fname.includes("COMP TRADE") || fname.includes("TRADE")) filial = "COMP TRADE";
+
+                        jsonRows.forEach(row => {
+                            const findKey = (cands) => {
+                                const k = Object.keys(row).find(x => cands.includes(x.trim().toLowerCase()));
+                                return k ? row[k] : "";
+                            };
+
+                            const rawDate = findKey(['data', 'data do pedido', 'data da venda', 'data emissão']);
+                            let dataStr = "", dataFmt = "-";
+                            if (rawDate) {
+                                const str = String(rawDate).trim();
+                                if (str.includes('/')) {
+                                    const p = str.split('/');
+                                    if (p.length === 3) {
+                                        dataFmt = `${p[0].padStart(2,'0')}/${p[1].padStart(2,'0')}/${p[2].length===2?'20'+p[2]:p[2]}`;
+                                        dataStr = `${p[2].length===2?'20'+p[2]:p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+                                    }
+                                }
+                            }
+
+                            const sku = String(findKey(['código (sku)', 'código', 'sku', 'part number']) || "-").trim();
+                            const desc = String(findKey(['descrição', 'produto', 'descrição do produto']) || "").trim();
+                            const pedido = String(findKey(['número do pedido', 'pedido', 'id']) || "-").trim();
+                            const qtd = Number(findKey(['quantidade', 'qtd'])) || 1;
+
+                            if (desc && !desc.toLowerCase().includes('total geral')) {
+                                newRecords.push({
+                                    filial: findKey(['filial']) || filial,
+                                    data: dataStr,
+                                    data_fmt: dataFmt,
+                                    pedido: pedido,
+                                    sku: sku,
+                                    produto: desc,
+                                    qtd: qtd
+                                });
+                            }
+                        });
+                    } catch(err) {
+                        showToast(`Erro ao ler arquivo ${file.name}`, "error");
+                    }
+
+                    filesCount++;
+                    if (filesCount === files.length && newRecords.length > 0) {
+                        database = newRecords;
+                        localStorage.setItem('paulicomp_picking_db', JSON.stringify(database));
+                        populatePeriodFilter();
+                        updateDashboard();
+                        showToast(`<b>${newRecords.length}</b> itens de separação carregados!`, "success");
+
+                        // Sincroniza com Neon
+                        fetch('/api/picking', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(newRecords)
+                        }).catch(console.warn);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        async function syncWithNeon() {
+            try {
+                const res = await fetch('/api/picking');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        database = data;
+                        localStorage.setItem('paulicomp_picking_db', JSON.stringify(database));
+                        populatePeriodFilter();
+                        updateDashboard();
+                        showToast(`Sincronizado com Neon: ${database.length} registros.`, "success");
+                    }
+                }
+            } catch (err) {
+                console.warn("Offline Neon:", err);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('paulicomp_picking_db');
+            if (saved) {
+                try { database = JSON.parse(saved); } catch(e){}
+            }
+
+            populatePeriodFilter();
+            updateDashboard();
+            syncWithNeon();
+
+            // Listeners Filtros
+            ['filterMes', 'filterFilial', 'filterCurva'].forEach(id => {
+                document.getElementById(id)?.addEventListener('change', updateDashboard);
+            });
+            document.getElementById('searchInput')?.addEventListener('input', updateDashboard);
+
+            // Modal
+            const modal = document.getElementById('dataModal');
+            document.getElementById('btnOpenModal')?.addEventListener('click', () => modal.classList.remove('hidden'));
+            document.getElementById('btnCloseModal')?.addEventListener('click', () => modal.classList.add('hidden'));
+
+            // File Upload
+            document.getElementById('modalFileInput')?.addEventListener('change', (e) => {
+                processExcelFiles(e.target.files);
+                modal.classList.add('hidden');
+                e.target.value = '';
+            });
+
+            // Exportar Excel
+            document.getElementById('btnExportExcel')?.addEventListener('click', () => {
+                const ws = XLSX.utils.json_to_sheet(database);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Picking_Paulicomp");
+                XLSX.writeFile(wb, "Romaneio_Picking_Paulicomp.xlsx");
+            });
+
+            // Forçar Sincronização
+            document.getElementById('btnSyncCloud')?.addEventListener('click', () => {
+                showToast("Sincronizando com Neon...", "info");
+                syncWithNeon();
+            });
+
+            // PDF Print
+            document.getElementById('btnPdfReport')?.addEventListener('click', () => window.print());
+        });
+    </script>
+</body>
+</html>
