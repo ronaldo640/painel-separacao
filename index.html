@@ -4,16 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel Executivo de Separação & Curva ABC | Paulicomp</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <!-- Chart.js DataLabels Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
-    <!-- SheetJS (xlsx) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- html2pdf.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         body { font-family: 'Inter', sans-serif; }
@@ -30,14 +24,11 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-amber-600 selection:text-white">
 
-    <!-- Container de Notificações Toast -->
     <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md w-full pointer-events-none"></div>
 
-    <!-- Header Executivo Superior -->
     <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             
-            <!-- Bloco de Logo & Identificação -->
             <div class="flex items-center gap-4">
                 <div class="relative group cursor-pointer" id="logoWrapper" title="Logotipo da Empresa">
                     <div class="h-12 px-3 py-1 bg-transparent border border-slate-700/60 rounded-xl flex items-center justify-center transition-all group-hover:border-amber-500 group-hover:bg-slate-800/40">
@@ -62,7 +53,6 @@
                 </div>
             </div>
 
-            <!-- Botões Topo -->
             <div class="flex flex-wrap items-center gap-2.5">
                 <button id="btnPdfReport" class="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold px-3.5 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-all active:scale-95 border border-red-500/30">
                     <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -80,12 +70,10 @@
             </div>
         </div>
 
-        <!-- Barra de Filtros Integrada (Mês, Filial, Curva ABC e Busca) -->
         <div class="bg-slate-900 border-t border-slate-800/80 px-4 sm:px-6 lg:px-8 py-2.5">
             <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
                 <div class="flex flex-wrap items-center gap-3">
                     
-                    <!-- Filtro Mês -->
                     <div class="flex items-center gap-1.5">
                         <span class="text-xs font-semibold text-slate-400">Mês:</span>
                         <select id="filterMes" class="bg-slate-800 border border-amber-500/50 text-white text-xs font-bold rounded-md px-2.5 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer">
@@ -93,7 +81,6 @@
                         </select>
                     </div>
 
-                    <!-- Filtro Filial -->
                     <div class="flex items-center gap-1.5">
                         <span class="text-xs font-semibold text-slate-400">Filial:</span>
                         <select id="filterFilial" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-md px-2.5 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer">
@@ -104,7 +91,6 @@
                         </select>
                     </div>
 
-                    <!-- Filtro Curva ABC -->
                     <div class="flex items-center gap-1.5">
                         <span class="text-xs font-semibold text-slate-400">Curva:</span>
                         <select id="filterCurva" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-md px-2.5 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer">
@@ -115,7 +101,6 @@
                         </select>
                     </div>
 
-                    <!-- Input de Busca -->
                     <div class="relative">
                         <input type="text" id="searchInput" placeholder="Buscar SKU ou Produto..." class="bg-slate-800/90 border border-slate-700 text-white text-xs rounded-md pl-8 pr-3 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none w-52">
                         <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -132,10 +117,8 @@
         </div>
     </header>
 
-    <!-- Área Principal -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1 w-full">
         
-        <!-- Cards KPIs Superiores -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm relative overflow-hidden">
                 <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-400"></div>
@@ -178,10 +161,7 @@
             </div>
         </div>
 
-        <!-- Linha Central: 3 Gráficos (Ritmo por Dia, Top 10 SKUs, Curva ABC) -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            <!-- Gráfico 1: Ritmo por Dia (5 colunas) -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 lg:col-span-4 shadow-sm flex flex-col">
                 <div class="pb-3 mb-2 border-b border-slate-800">
                     <h2 class="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2">
@@ -195,7 +175,6 @@
                 </div>
             </div>
 
-            <!-- Gráfico 2: Top 10 SKUs (5 colunas) -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 lg:col-span-5 shadow-sm flex flex-col">
                 <div class="pb-3 mb-2 border-b border-slate-800">
                     <h2 class="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2">
@@ -209,7 +188,6 @@
                 </div>
             </div>
 
-            <!-- Gráfico 3: Curva ABC (3 colunas) -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 lg:col-span-3 shadow-sm flex flex-col">
                 <div class="pb-3 mb-2 border-b border-slate-800">
                     <h2 class="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2">
@@ -222,10 +200,8 @@
                     <canvas id="chartCurvaAbc"></canvas>
                 </div>
             </div>
-
         </div>
 
-        <!-- Romaneio Operacional de Picking -->
         <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
             <div class="p-4 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-900/60">
                 <div>
@@ -253,7 +229,6 @@
         </div>
     </main>
 
-    <!-- Modal Banco de Dados & Importação -->
     <div id="dataModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5">
             <div class="flex items-center justify-between border-b border-slate-800 pb-4">
@@ -270,12 +245,13 @@
                 </div>
                 <button id="btnCloseModal" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition text-lg">&times;</button>
             </div>
+
             <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 space-y-3">
                 <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider">Como Importar Relatórios:</h4>
                 <p class="text-xs text-slate-300 leading-relaxed">
-                    Você pode selecionar arquivos <b>.xls</b> ou <b>.xlsx</b> de qualquer uma das filiais (ex: <i>pedidos_venda_COMP TRADE_AGO.xls</i>). Os dados são sincronizados no banco e salvos localmente.
+                    Você pode selecionar arquivos <b>.xls</b> ou <b>.xlsx</b> de qualquer uma das filiais. Os dados são sincronizados no banco Neon e salvos localmente.
                 </p>
-                <div class="pt-2 flex flex-wrap gap-2">
+                <div class="pt-2 flex flex-wrap items-center gap-2">
                     <label class="cursor-pointer bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold px-4 py-2.5 rounded-lg flex items-center gap-2 shadow transition active:scale-95">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -283,10 +259,19 @@
                         <span>Importar Planilhas (.xls / .xlsx)</span>
                         <input type="file" id="modalFileInput" accept=".xls,.xlsx,.csv" multiple class="hidden">
                     </label>
-                    <button id="btnExportExcel" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition">Exportar Romaneio Excel</button>
-                    <button id="btnSyncCloud" class="bg-amber-900/60 hover:bg-amber-800 text-amber-300 border border-amber-700 text-xs font-semibold px-3 py-2.5 rounded-lg transition ml-auto">Forçar Sincronização Neon</button>
+
+                    <button id="btnExportExcel" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition">Exportar Excel</button>
+                    <button id="btnSyncCloud" class="bg-amber-900/60 hover:bg-amber-800 text-amber-300 border border-amber-700 text-xs font-semibold px-3 py-2.5 rounded-lg transition">Sincronizar</button>
+
+                    <button id="btnClearDatabase" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/80 text-xs font-bold px-3 py-2.5 rounded-lg transition ml-auto flex items-center gap-1.5 active:scale-95">
+                        <svg class="w-3.5 h-3.5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                        <span>Limpar Banco</span>
+                    </button>
                 </div>
             </div>
+
             <div class="grid grid-cols-3 gap-3 text-center">
                 <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-800">
                     <span class="text-[10px] text-slate-400 uppercase font-semibold">Total Registros</span>
@@ -304,28 +289,13 @@
         </div>
     </div>
 
-    <!-- Script de Lógica e Renderização -->
     <script>
         Chart.register(ChartDataLabels);
 
-        // Base Inicial dos Dados de Separação
-        let database = [
-            {"filial":"COMP TRADE","data":"2026-08-01","data_fmt":"01/08/2026","pedido":"10710","sku":"438722-001","produto":"Cabo De Força Tripolar Mickey Padrão BR 1,8m","qtd":1},
-            {"filial":"PAULICOMP SP","data":"2026-08-02","data_fmt":"02/08/2026","pedido":"10711","sku":"767888","produto":"Lamina De Ralar Fino Multiprocessador Philco","qtd":1},
-            {"filial":"PAULICOMP SUL","data":"2026-08-02","data_fmt":"02/08/2026","pedido":"10712","sku":"765957","produto":"Teclado De Membrana Para Micro-ondas Philco","qtd":1},
-            {"filial":"COMP TRADE","data":"2026-08-02","data_fmt":"02/08/2026","pedido":"10715","sku":"767888","produto":"Lamina De Ralar Fino Multiprocessador Philco","qtd":1},
-            {"filial":"PAULICOMP SP","data":"2026-08-03","data_fmt":"03/08/2026","pedido":"10716","sku":"438722-001","produto":"Cabo De Força Tripolar Mickey Padrão BR 1,8m","qtd":1},
-            {"filial":"PAULICOMP SUL","data":"2026-08-03","data_fmt":"03/08/2026","pedido":"10719","sku":"438722-001","produto":"Cabo De Força Tripolar Mickey Padrão BR 1,8m","qtd":1},
-            {"filial":"COMP TRADE","data":"2026-08-04","data_fmt":"04/08/2026","pedido":"10720","sku":"760587","produto":"Motor Ca 220V 50W YJ62/300 Para Air Fry","qtd":1},
-            {"filial":"PAULICOMP SP","data":"2026-08-04","data_fmt":"04/08/2026","pedido":"10721","sku":"765002","produto":"Carcaça Do Multiprocessador Philco All In One","qtd":1},
-            {"filial":"PAULICOMP SUL","data":"2026-08-04","data_fmt":"04/08/2026","pedido":"10722","sku":"767888","produto":"Lamina De Ralar Fino Multiprocessador Philco","qtd":1},
-            {"filial":"COMP TRADE","data":"2026-08-05","data_fmt":"05/08/2026","pedido":"10724","sku":"761082","produto":"Bandeja Para Cesto De Air Fry Fama FFR2 2,9L","qtd":1},
-            {"filial":"PAULICOMP SP","data":"2026-08-05","data_fmt":"05/08/2026","pedido":"10725","sku":"440980010100-SC","produto":"Calculadora Financeira HP 12C Gold 120 Funções","qtd":2},
-            {"filial":"PAULICOMP SUL","data":"2026-08-06","data_fmt":"06/08/2026","pedido":"10732","sku":"765004","produto":"Botão Knob Multiprocessador All In One Philco","qtd":1},
-            {"filial":"COMP TRADE","data":"2026-08-07","data_fmt":"07/08/2026","pedido":"10740","sku":"440980010100-SC","produto":"Calculadora Financeira HP 12C Gold 120 Funções","qtd":8},
-            {"filial":"PAULICOMP SP","data":"2026-08-11","data_fmt":"11/08/2026","pedido":"10760","sku":"757703","produto":"Bateria 14500 600mAh 3.7V Great Power","qtd":8}
-        ];
+        // Senha de autorização para limpeza de dados (você pode alterar aqui se desejar)
+        const ADMIN_PASSWORD = "paulicomp-limpar";
 
+        let database = [];
         let chartRitmoDia = null, chartTopSkus = null, chartCurvaAbc = null;
         const ptMonths = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -334,14 +304,13 @@
             if (!container) return;
             const toast = document.createElement('div');
             toast.className = `pointer-events-auto toast-animate p-4 rounded-xl shadow-2xl border flex items-start gap-3 text-xs ${
-                type === 'success' ? 'bg-slate-900/95 border-emerald-500 text-emerald-200' : 'bg-slate-900/95 border-amber-500 text-amber-200'
+                type === 'success' ? 'bg-slate-900/95 border-emerald-500 text-emerald-200' : (type === 'error' ? 'bg-slate-900/95 border-rose-500 text-rose-200' : 'bg-slate-900/95 border-amber-500 text-amber-200')
             }`;
             toast.innerHTML = `<div class="flex-1 font-medium">${message}</div><button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white">&times;</button>`;
             container.appendChild(toast);
             setTimeout(() => { toast.classList.add('opacity-0'); setTimeout(() => toast.remove(), 400); }, 4000);
         }
 
-        // Calcula a Curva ABC dinamicamente sobre a lista de itens
         function computeAbcCurve(items) {
             const skuMap = {};
             items.forEach(d => {
@@ -365,6 +334,7 @@
         function populatePeriodFilter() {
             const select = document.getElementById('filterMes');
             if (!select) return;
+            const currentVal = select.value;
             const monthSet = new Set();
             database.forEach(d => {
                 if (d.data && d.data.length >= 7) monthSet.add(d.data.substring(0, 7));
@@ -373,12 +343,13 @@
             select.innerHTML = '<option value="ALL">Todos os Meses</option>';
             sortedMonths.forEach(ym => {
                 const [year, month] = ym.split('-');
-                const monthName = ptMonths[parseInt(month, 10) - 1];
+                const monthName = ptMonths[parseInt(month, 10) - 1] || month;
                 const opt = document.createElement('option');
                 opt.value = ym;
                 opt.innerText = `${monthName}/${year}`;
                 select.appendChild(opt);
             });
+            if (sortedMonths.includes(currentVal)) select.value = currentVal;
         }
 
         function updateModalStats() {
@@ -396,7 +367,6 @@
             const fCurva = document.getElementById('filterCurva')?.value || 'ALL';
             const search = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
 
-            // 1. Calcula Curva ABC no universo dos filtros de Mês e Filial
             const preFiltered = database.filter(d => {
                 const matchMes = (fMes === 'ALL' || (d.data && d.data.startsWith(fMes)));
                 const matchFilial = (fFilial === 'ALL' || d.filial === fFilial);
@@ -404,7 +374,6 @@
             });
             const { abcMap } = computeAbcCurve(preFiltered);
 
-            // 2. Aplica filtro de Curva e Busca
             const filtered = preFiltered.filter(d => {
                 const curva = abcMap[d.sku] || 'Classe C';
                 const matchCurva = (fCurva === 'ALL' || curva === fCurva);
@@ -412,7 +381,6 @@
                 return matchCurva && matchSearch;
             });
 
-            // KPIs
             const totalPecas = filtered.reduce((acc, curr) => acc + (Number(curr.qtd) || 1), 0);
             const totalPedidos = new Set(filtered.map(d => d.pedido)).size;
             const totalSkus = new Set(filtered.map(d => d.sku)).size;
@@ -426,7 +394,7 @@
             document.getElementById('kpiCurvaA').innerText = `${skusA} SKUs (${pctA}%)`;
             updateModalStats();
 
-            // GRÁFICO 1: Ritmo por Dia
+            // Gráfico 1: Ritmo Dia
             const dateMap = {};
             filtered.forEach(d => {
                 const dt = d.data_fmt || 'Sem Data';
@@ -467,7 +435,7 @@
                 });
             }
 
-            // GRÁFICO 2: Top 10 SKUs Mais Separados
+            // Gráfico 2: Top SKUs
             const skuVolMap = {};
             filtered.forEach(d => {
                 skuVolMap[d.sku] = (skuVolMap[d.sku] || 0) + (Number(d.qtd) || 1);
@@ -502,7 +470,7 @@
                 });
             }
 
-            // GRÁFICO 3: Curva ABC (Giro)
+            // Gráfico 3: Curva ABC
             let qtdA = 0, qtdB = 0, qtdC = 0;
             filtered.forEach(d => {
                 const c = abcMap[d.sku] || 'Classe C';
@@ -539,7 +507,7 @@
                 });
             }
 
-            // TABELA
+            // Tabela
             const tbody = document.getElementById('tableBody');
             if (tbody) {
                 tbody.innerHTML = '';
@@ -565,7 +533,7 @@
             }
         }
 
-        // Importação de Planilhas Multi-Formato (Tiny ERP / Olist)
+        // Leitura de Planilhas
         function processExcelFiles(files) {
             if (!files || files.length === 0) return;
             let filesCount = 0;
@@ -627,13 +595,13 @@
 
                     filesCount++;
                     if (filesCount === files.length && newRecords.length > 0) {
-                        database = newRecords;
+                        database = [...database, ...newRecords];
                         localStorage.setItem('paulicomp_picking_db', JSON.stringify(database));
                         populatePeriodFilter();
                         updateDashboard();
-                        showToast(`<b>${newRecords.length}</b> itens de separação carregados!`, "success");
+                        showToast(`<b>${newRecords.length}</b> itens adicionados ao banco!`, "success");
 
-                        // Sincroniza com Neon
+                        // Persiste no Neon
                         fetch('/api/picking', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -650,7 +618,7 @@
                 const res = await fetch('/api/picking');
                 if (res.ok) {
                     const data = await res.json();
-                    if (Array.isArray(data) && data.length > 0) {
+                    if (Array.isArray(data)) {
                         database = data;
                         localStorage.setItem('paulicomp_picking_db', JSON.stringify(database));
                         populatePeriodFilter();
@@ -660,6 +628,43 @@
                 }
             } catch (err) {
                 console.warn("Offline Neon:", err);
+            }
+        }
+
+        // Função de Limpeza Protegida por Senha
+        async function handleClearDatabase() {
+            const pwd = prompt("ÁREA RESTRITA: Digite a senha para limpar o banco de dados:");
+            if (pwd === null) return; // Cancelado
+
+            if (pwd.trim() !== ADMIN_PASSWORD) {
+                alert("Senha incorreta! Operação cancelada.");
+                return;
+            }
+
+            const confirmDelete = confirm("Tem certeza de que deseja apagar TODOS os registros de separação? Esta ação não pode ser desfeita.");
+            if (!confirmDelete) return;
+
+            try {
+                showToast("Limpando dados no Neon...", "info");
+                const res = await fetch('/api/picking', { method: 'DELETE' });
+                
+                // Limpa localmente
+                database = [];
+                localStorage.removeItem('paulicomp_picking_db');
+                populatePeriodFilter();
+                updateDashboard();
+
+                if (res.ok) {
+                    showToast("Banco de dados Neon e registros locais zerados com sucesso!", "success");
+                } else {
+                    showToast("Dados locais limpos. Verifique a conexão com o Neon.", "error");
+                }
+            } catch (err) {
+                database = [];
+                localStorage.removeItem('paulicomp_picking_db');
+                populatePeriodFilter();
+                updateDashboard();
+                showToast("Registros locais removidos.", "info");
             }
         }
 
@@ -673,39 +678,40 @@
             updateDashboard();
             syncWithNeon();
 
-            // Listeners Filtros
             ['filterMes', 'filterFilial', 'filterCurva'].forEach(id => {
                 document.getElementById(id)?.addEventListener('change', updateDashboard);
             });
             document.getElementById('searchInput')?.addEventListener('input', updateDashboard);
 
-            // Modal
             const modal = document.getElementById('dataModal');
             document.getElementById('btnOpenModal')?.addEventListener('click', () => modal.classList.remove('hidden'));
             document.getElementById('btnCloseModal')?.addEventListener('click', () => modal.classList.add('hidden'));
 
-            // File Upload
             document.getElementById('modalFileInput')?.addEventListener('change', (e) => {
                 processExcelFiles(e.target.files);
                 modal.classList.add('hidden');
                 e.target.value = '';
             });
 
-            // Exportar Excel
             document.getElementById('btnExportExcel')?.addEventListener('click', () => {
+                if (database.length === 0) {
+                    alert("Não há dados para exportar.");
+                    return;
+                }
                 const ws = XLSX.utils.json_to_sheet(database);
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "Picking_Paulicomp");
                 XLSX.writeFile(wb, "Romaneio_Picking_Paulicomp.xlsx");
             });
 
-            // Forçar Sincronização
             document.getElementById('btnSyncCloud')?.addEventListener('click', () => {
                 showToast("Sincronizando com Neon...", "info");
                 syncWithNeon();
             });
 
-            // PDF Print
+            // Listener do Botão de Limpeza Protegido
+            document.getElementById('btnClearDatabase')?.addEventListener('click', handleClearDatabase);
+
             document.getElementById('btnPdfReport')?.addEventListener('click', () => window.print());
         });
     </script>
