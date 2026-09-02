@@ -851,10 +851,15 @@
                 if (erros.length > 0) {
                     showToast(`Falha ao sincronizar ${erros.map(e => e.filial).join(', ')}: ${erros[0].error}`, "error");
                 }
+                const comFalhasParciais = json.results.filter(r => r.pedidosComFalha > 0);
+                if (comFalhasParciais.length > 0) {
+                    const resumo = comFalhasParciais.map(r => `${r.filial}: ${r.pedidosComFalha}/${r.pedidosProcessados}`).join(', ');
+                    showToast(`Atenção: alguns pedidos não puderam ser lidos (provável limite da API do Tiny) — ${resumo}. ${comFalhasParciais[0].erroDetalhe || ''}`, "error");
+                }
                 if (json.insertedTotal > 0) {
                     await syncWithNeon();
                     showToast(`Sincronização concluída: <b>${json.insertedTotal}</b> novo(s) item(ns).`, "success");
-                } else if (erros.length === 0) {
+                } else if (erros.length === 0 && comFalhasParciais.length === 0) {
                     showToast("Sincronizado — nenhum item novo no Tiny.", "info");
                 }
 

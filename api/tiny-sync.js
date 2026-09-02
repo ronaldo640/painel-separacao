@@ -166,8 +166,14 @@ export default async function handler(req, res) {
       const truncado = ids.length > MAX_PEDIDOS_POR_FILIAL;
       const idsProcessados = ids.slice(0, MAX_PEDIDOS_POR_FILIAL);
 
+      let falhas = 0;
+      let ultimoErroDetalhe = null;
       const pedidos = await mapWithConcurrency(idsProcessados, DETAIL_CONCURRENCY, id =>
-        fetchPedidoDetalhe(token, id).catch(() => null)
+        fetchPedidoDetalhe(token, id).catch(err => {
+          falhas++;
+          ultimoErroDetalhe = err.message;
+          return null;
+        })
       );
 
       const rows = pedidos.flatMap(p => mapPedidoParaItens(p, f.nome));
@@ -177,6 +183,8 @@ export default async function handler(req, res) {
         filial: f.nome,
         pedidosEncontrados: ids.length,
         pedidosProcessados: idsProcessados.length,
+        pedidosComFalha: falhas,
+        erroDetalhe: falhas > 0 ? ultimoErroDetalhe : undefined,
         itensLidos: rows.length,
         inseridos: inserted,
         truncado,
