@@ -127,18 +127,22 @@ function mapPedidoParaItens(pedido, filialNome) {
 
 // Roda `worker` sobre `items` com no máximo `limit` chamadas simultâneas, espaçando o início
 // de cada nova chamada em `staggerMs` para não estourar o limite de requisições do Tiny.
-async function mapWithConcurrency(items, limit, worker, staggerMs = 0) {
+// Para de iniciar novas chamadas depois de `deadline` (Date.now() em ms) — melhor responder
+// com o que já foi processado do que a Vercel matar a função sem devolver nada.
+async function mapWithConcurrency(items, limit, worker, staggerMs = 0, deadline = Infinity) {
   const results = new Array(items.length);
   let cursor = 0;
+  let cortadoPorTempo = false;
   async function runNext() {
     while (cursor < items.length) {
+      if (Date.now() >= deadline) { cortadoPorTempo = true; return; }
       const i = cursor++;
       if (staggerMs > 0 && i > 0) await sleep(staggerMs);
       results[i] = await worker(items[i]);
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, runNext));
-  return results;
+  return { results, processados: cursor, cortadoPorTempo };
 }
 
 export default async function handler(req, res) {
@@ -150,6 +154,11 @@ export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Método não permitido.' });
   }
+
+  // Corta o processamento de novos pedidos antes do maxDuration da função (60s) para sempre
+  // devolver uma resposta com o que já foi sincronizado, em vez de a Vercel matar a execução
+  // sem retornar nada.
+  const deadline = Date.now() + 45000;
 
   const query = req.method === 'GET' ? req.query : (req.body || {});
   let dataInicial = query.dataInicial || null;
@@ -190,26 +199,28 @@ export default async function handler(req, res) {
 
       let falhas = 0;
       let ultimoErroDetalhe = null;
-      const pedidos = await mapWithConcurrency(idsProcessados, DETAIL_CONCURRENCY, id =>
-        fetchPedidoDetalhe(token, id).catch(err => {
+      const { results: pedidos, processados, cortadoPorTempo } = await mapWithConcurrency(
+        idsProcessados, DETAIL_CONCURRENCY,
+        id => fetchPedidoDetalhe(token, id).catch(err => {
           falhas++;
           ultimoErroDetalhe = err.message;
           return null;
-        }), DETAIL_STAGGER_MS
+        }),
+        DETAIL_STAGGER_MS, deadline
       );
 
-      const rows = pedidos.flatMap(p => mapPedidoParaItens(p, f.nome));
+      const rows = pedidos.filter(Boolean).flatMap(p => mapPedidoParaItens(p, f.nome));
       const inserted = await insertPickingRows(sql, rows);
 
       return {
         filial: f.nome,
         pedidosEncontrados: ids.length,
-        pedidosProcessados: idsProcessados.length,
+        pedidosProcessados: processados,
         pedidosComFalha: falhas,
         erroDetalhe: falhas > 0 ? ultimoErroDetalhe : undefined,
         itensLidos: rows.length,
         inseridos: inserted,
-        truncado,
+        truncado: truncado || cortadoPorTempo,
       };
     } catch (err) {
       return { filial: f.nome, error: err.message };
