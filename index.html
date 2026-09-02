@@ -405,23 +405,9 @@
     <script>
         Chart.register(ChartDataLabels);
 
-        // Base Inicial dos Dados de Separação
-        let database = [
-            {"filial":"COMP TRADE","data":"2026-08-01","data_fmt":"01/08/2026","pedido":"10710","sku":"438722-001","produto":"Cabo De Força Tripolar Mickey Padrão BR 1,8m","qtd":1},
-            {"filial":"PAULICOMP SP","data":"2026-08-02","data_fmt":"02/08/2026","pedido":"10711","sku":"767888","produto":"Lamina De Ralar Fino Multiprocessador Philco","qtd":1},
-            {"filial":"PAULICOMP SUL","data":"2026-08-02","data_fmt":"02/08/2026","pedido":"10712","sku":"765957","produto":"Teclado De Membrana Para Micro-ondas Philco","qtd":1},
-            {"filial":"COMP TRADE","data":"2026-08-02","data_fmt":"02/08/2026","pedido":"10715","sku":"767888","produto":"Lamina De Ralar Fino Multiprocessador Philco","qtd":1},
-            {"filial":"PAULICOMP SP","data":"2026-08-03","data_fmt":"03/08/2026","pedido":"10716","sku":"438722-001","produto":"Cabo De Força Tripolar Mickey Padrão BR 1,8m","qtd":1},
-            {"filial":"PAULICOMP SUL","data":"2026-08-03","data_fmt":"03/08/2026","pedido":"10719","sku":"438722-001","produto":"Cabo De Força Tripolar Mickey Padrão BR 1,8m","qtd":1},
-            {"filial":"COMP TRADE","data":"2026-08-04","data_fmt":"04/08/2026","pedido":"10720","sku":"760587","produto":"Motor Ca 220V 50W YJ62/300 Para Air Fry","qtd":1},
-            {"filial":"PAULICOMP SP","data":"2026-08-04","data_fmt":"04/08/2026","pedido":"10721","sku":"765002","produto":"Carcaça Do Multiprocessador Philco All In One","qtd":1},
-            {"filial":"PAULICOMP SUL","data":"2026-08-04","data_fmt":"04/08/2026","pedido":"10722","sku":"767888","produto":"Lamina De Ralar Fino Multiprocessador Philco","qtd":1},
-            {"filial":"COMP TRADE","data":"2026-08-05","data_fmt":"05/08/2026","pedido":"10724","sku":"761082","produto":"Bandeja Para Cesto De Air Fry Fama FFR2 2,9L","qtd":1},
-            {"filial":"PAULICOMP SP","data":"2026-08-05","data_fmt":"05/08/2026","pedido":"10725","sku":"440980010100-SC","produto":"Calculadora Financeira HP 12C Gold 120 Funções","qtd":2},
-            {"filial":"PAULICOMP SUL","data":"2026-08-06","data_fmt":"06/08/2026","pedido":"10732","sku":"765004","produto":"Botão Knob Multiprocessador All In One Philco","qtd":1},
-            {"filial":"COMP TRADE","data":"2026-08-07","data_fmt":"07/08/2026","pedido":"10740","sku":"440980010100-SC","produto":"Calculadora Financeira HP 12C Gold 120 Funções","qtd":8},
-            {"filial":"PAULICOMP SP","data":"2026-08-11","data_fmt":"11/08/2026","pedido":"10760","sku":"757703","produto":"Bateria 14500 600mAh 3.7V Great Power","qtd":8}
-        ];
+        // Base local — populada via syncWithNeon()/syncTinyAll() ao carregar a página.
+        // Sem dados de exemplo: a base real vive só no Neon.
+        let database = [];
 
         let chartRitmoDia = null, chartTopSkus = null, chartCurvaAbc = null;
         const ptMonths = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
