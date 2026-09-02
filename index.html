@@ -4,9 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel Executivo de Separação & Curva ABC | Paulicomp</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Chart.js DataLabels Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <!-- SheetJS (xlsx) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
@@ -24,11 +28,14 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-amber-600 selection:text-white">
 
+    <!-- Container de Notificações Toast -->
     <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md w-full pointer-events-none"></div>
 
+    <!-- Header Executivo Superior -->
     <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             
+            <!-- Bloco de Logo & Identificação -->
             <div class="flex items-center gap-4">
                 <div class="relative group cursor-pointer" id="logoWrapper" title="Logotipo da Empresa">
                     <div class="h-12 px-3 py-1 bg-transparent border border-slate-700/60 rounded-xl flex items-center justify-center transition-all group-hover:border-amber-500 group-hover:bg-slate-800/40">
@@ -53,6 +60,7 @@
                 </div>
             </div>
 
+            <!-- Botões Topo -->
             <div class="flex flex-wrap items-center gap-2.5">
                 <button id="btnPdfReport" class="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold px-3.5 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-all active:scale-95 border border-red-500/30">
                     <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -70,10 +78,12 @@
             </div>
         </div>
 
+        <!-- Barra de Filtros Integrada -->
         <div class="bg-slate-900 border-t border-slate-800/80 px-4 sm:px-6 lg:px-8 py-2.5">
             <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
                 <div class="flex flex-wrap items-center gap-3">
                     
+                    <!-- Filtro Mês -->
                     <div class="flex items-center gap-1.5">
                         <span class="text-xs font-semibold text-slate-400">Mês:</span>
                         <select id="filterMes" class="bg-slate-800 border border-amber-500/50 text-white text-xs font-bold rounded-md px-2.5 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer">
@@ -81,6 +91,7 @@
                         </select>
                     </div>
 
+                    <!-- Filtro Filial -->
                     <div class="flex items-center gap-1.5">
                         <span class="text-xs font-semibold text-slate-400">Filial:</span>
                         <select id="filterFilial" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-md px-2.5 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer">
@@ -91,6 +102,7 @@
                         </select>
                     </div>
 
+                    <!-- Filtro Curva ABC -->
                     <div class="flex items-center gap-1.5">
                         <span class="text-xs font-semibold text-slate-400">Curva:</span>
                         <select id="filterCurva" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-md px-2.5 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer">
@@ -101,6 +113,7 @@
                         </select>
                     </div>
 
+                    <!-- Input de Busca -->
                     <div class="relative">
                         <input type="text" id="searchInput" placeholder="Buscar SKU ou Produto..." class="bg-slate-800/90 border border-slate-700 text-white text-xs rounded-md pl-8 pr-3 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none w-52">
                         <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -117,8 +130,10 @@
         </div>
     </header>
 
+    <!-- Área Principal -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1 w-full">
         
+        <!-- Cards KPIs Superiores -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm relative overflow-hidden">
                 <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-400"></div>
@@ -161,6 +176,7 @@
             </div>
         </div>
 
+        <!-- Linha Central: 3 Gráficos -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 lg:col-span-4 shadow-sm flex flex-col">
                 <div class="pb-3 mb-2 border-b border-slate-800">
@@ -202,6 +218,7 @@
             </div>
         </div>
 
+        <!-- Romaneio Operacional de Picking -->
         <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
             <div class="p-4 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-900/60">
                 <div>
@@ -229,6 +246,7 @@
         </div>
     </main>
 
+    <!-- Modal Banco de Dados & Importação -->
     <div id="dataModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5">
             <div class="flex items-center justify-between border-b border-slate-800 pb-4">
@@ -263,6 +281,7 @@
                     <button id="btnExportExcel" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition">Exportar Excel</button>
                     <button id="btnSyncCloud" class="bg-amber-900/60 hover:bg-amber-800 text-amber-300 border border-amber-700 text-xs font-semibold px-3 py-2.5 rounded-lg transition">Sincronizar</button>
 
+                    <!-- Botão Protegido por Senha para Limpar Banco -->
                     <button id="btnClearDatabase" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/80 text-xs font-bold px-3 py-2.5 rounded-lg transition ml-auto flex items-center gap-1.5 active:scale-95">
                         <svg class="w-3.5 h-3.5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -289,11 +308,12 @@
         </div>
     </div>
 
+    <!-- Script de Lógica e Renderização -->
     <script>
         Chart.register(ChartDataLabels);
 
-        // Senha de autorização para limpeza de dados (você pode alterar aqui se desejar)
-        const ADMIN_PASSWORD = "1985@Jtekt";
+        // Senha de autorização para limpeza de dados
+        const ADMIN_PASSWORD = "paulicomp-limpar";
 
         let database = [];
         let chartRitmoDia = null, chartTopSkus = null, chartCurvaAbc = null;
@@ -533,33 +553,58 @@
             }
         }
 
-        // Leitura de Planilhas
-        function processExcelFiles(files) {
+        // Leitor universal de planilhas do Tiny ERP / Olist
+        async function processExcelFiles(files) {
             if (!files || files.length === 0) return;
-            let filesCount = 0;
+            showToast("Processando arquivo(s)...", "info");
+
             const newRecords = [];
 
-            Array.from(files).forEach(file => {
-                const reader = new FileReader();
-                reader.onload = function(evt) {
-                    try {
-                        const data = new Uint8Array(evt.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
-                        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            for (const file of Array.from(files)) {
+                try {
+                    const buffer = await file.arrayBuffer();
+                    const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                    const fname = file.name.toUpperCase();
+                    let filial = "PAULICOMP SP";
+                    if (fname.includes("SUL")) filial = "PAULICOMP SUL";
+                    else if (fname.includes("COMP TRADE") || fname.includes("TRADE")) filial = "COMP TRADE";
+
+                    // Detecta se é o relatório sintético (onde cabeçalhos estão na linha 0 e dados começam na linha 3)
+                    const isSyntheticReport = rawRows[0] && String(rawRows[0][0]).toLowerCase().includes('descrição') && String(rawRows[0][1]).toLowerCase().includes('cálculo');
+
+                    if (isSyntheticReport) {
+                        for (let i = 3; i < rawRows.length; i++) {
+                            const r = rawRows[i];
+                            if (!r || r.length < 3) continue;
+                            const desc = String(r[0] || '').trim();
+                            if (!desc || desc.toLowerCase().includes('total')) continue;
+                            const sku = String(r[1] || '-').trim();
+                            const qtd = Number(r[2]) || 1;
+
+                            newRecords.push({
+                                filial: filial,
+                                data: "2026-08-01",
+                                data_fmt: "01/08/2026",
+                                pedido: "LOTE",
+                                sku: sku,
+                                produto: desc,
+                                qtd: qtd
+                            });
+                        }
+                    } else {
+                        // Relatório de Pedidos de Venda detalhado
                         const jsonRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-
-                        const fname = file.name.toUpperCase();
-                        let filial = "PAULICOMP SP";
-                        if (fname.includes("SUL")) filial = "PAULICOMP SUL";
-                        else if (fname.includes("COMP TRADE") || fname.includes("TRADE")) filial = "COMP TRADE";
-
                         jsonRows.forEach(row => {
-                            const findKey = (cands) => {
-                                const k = Object.keys(row).find(x => cands.includes(x.trim().toLowerCase()));
+                            const findKey = (keys) => {
+                                const k = Object.keys(row).find(x => keys.includes(x.trim().toLowerCase()));
                                 return k ? row[k] : "";
                             };
 
-                            const rawDate = findKey(['data', 'data do pedido', 'data da venda', 'data emissão']);
+                            const rawDate = findKey(['data', 'data do pedido', 'data da venda', 'data emissão', 'emissão']);
                             let dataStr = "", dataFmt = "-";
                             if (rawDate) {
                                 const str = String(rawDate).trim();
@@ -572,12 +617,12 @@
                                 }
                             }
 
-                            const sku = String(findKey(['código (sku)', 'código', 'sku', 'part number']) || "-").trim();
-                            const desc = String(findKey(['descrição', 'produto', 'descrição do produto']) || "").trim();
+                            const sku = String(findKey(['código (sku)', 'código', 'sku', 'part number', 'código do produto']) || "-").trim();
+                            const desc = String(findKey(['descrição', 'produto', 'descrição do produto', 'nome do produto']) || "").trim();
                             const pedido = String(findKey(['número do pedido', 'pedido', 'id']) || "-").trim();
-                            const qtd = Number(findKey(['quantidade', 'qtd'])) || 1;
+                            const qtd = Number(findKey(['quantidade', 'qtd', 'quant.'])) || 1;
 
-                            if (desc && !desc.toLowerCase().includes('total geral')) {
+                            if (desc && !desc.toLowerCase().includes('total geral') && !desc.toLowerCase().includes('total de')) {
                                 newRecords.push({
                                     filial: findKey(['filial']) || filial,
                                     data: dataStr,
@@ -589,28 +634,37 @@
                                 });
                             }
                         });
-                    } catch(err) {
-                        showToast(`Erro ao ler arquivo ${file.name}`, "error");
                     }
+                } catch (err) {
+                    showToast(`Erro ao ler ${file.name}: ${err.message}`, "error");
+                }
+            }
 
-                    filesCount++;
-                    if (filesCount === files.length && newRecords.length > 0) {
-                        database = [...database, ...newRecords];
-                        localStorage.setItem('paulicomp_picking_db', JSON.stringify(database));
-                        populatePeriodFilter();
-                        updateDashboard();
-                        showToast(`<b>${newRecords.length}</b> itens adicionados ao banco!`, "success");
+            if (newRecords.length > 0) {
+                database = [...database, ...newRecords];
+                localStorage.setItem('paulicomp_picking_db', JSON.stringify(database));
+                populatePeriodFilter();
+                updateDashboard();
+                showToast(`<b>${newRecords.length}</b> itens carregados na tela! Gravando no banco...`, "info");
 
-                        // Persiste no Neon
-                        fetch('/api/picking', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(newRecords)
-                        }).catch(console.warn);
+                try {
+                    const res = await fetch('/api/picking', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newRecords)
+                    });
+                    const resData = await res.json();
+                    if (res.ok) {
+                        showToast(`Sucesso! <b>${newRecords.length}</b> registros salvos no Neon.`, "success");
+                    } else {
+                        showToast(`Erro ao gravar no Neon: ${resData.error || 'Falha desconhecida'}`, "error");
                     }
-                };
-                reader.readAsArrayBuffer(file);
-            });
+                } catch (cloudErr) {
+                    showToast(`Salvo apenas localmente (Servidor inacessível).`, "info");
+                }
+            } else {
+                showToast("Nenhum produto válido encontrado na planilha.", "error");
+            }
         }
 
         async function syncWithNeon() {
@@ -618,7 +672,7 @@
                 const res = await fetch('/api/picking');
                 if (res.ok) {
                     const data = await res.json();
-                    if (Array.isArray(data)) {
+                    if (Array.isArray(data) && data.length > 0) {
                         database = data;
                         localStorage.setItem('paulicomp_picking_db', JSON.stringify(database));
                         populatePeriodFilter();
@@ -631,10 +685,10 @@
             }
         }
 
-        // Função de Limpeza Protegida por Senha
+        // Limpeza Protegida por Senha
         async function handleClearDatabase() {
             const pwd = prompt("ÁREA RESTRITA: Digite a senha para limpar o banco de dados:");
-            if (pwd === null) return; // Cancelado
+            if (pwd === null) return;
 
             if (pwd.trim() !== ADMIN_PASSWORD) {
                 alert("Senha incorreta! Operação cancelada.");
@@ -648,7 +702,6 @@
                 showToast("Limpando dados no Neon...", "info");
                 const res = await fetch('/api/picking', { method: 'DELETE' });
                 
-                // Limpa localmente
                 database = [];
                 localStorage.removeItem('paulicomp_picking_db');
                 populatePeriodFilter();
@@ -709,9 +762,7 @@
                 syncWithNeon();
             });
 
-            // Listener do Botão de Limpeza Protegido
             document.getElementById('btnClearDatabase')?.addEventListener('click', handleClearDatabase);
-
             document.getElementById('btnPdfReport')?.addEventListener('click', () => window.print());
         });
     </script>
