@@ -30,10 +30,15 @@
     <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             
+            <!-- Bloco de Logo & Identificação -->
             <div class="flex items-center gap-4">
                 <div class="relative group cursor-pointer" id="logoWrapper" title="Logotipo da Empresa">
-                    <div class="h-12 px-3 py-1 bg-transparent border border-slate-700/60 rounded-xl flex items-center justify-center transition-all group-hover:border-amber-500 group-hover:bg-slate-800/40">
-                        <img id="logoImage" src="./logo-empresa.png" alt="Logotipo Empresa" class="h-9 w-auto max-w-[170px] object-contain" onerror="this.classList.add('hidden'); document.getElementById('logoDefaultSvg').classList.remove('hidden');">
+                    <div class="h-12 px-3 py-1 bg-slate-900 border border-slate-700/60 rounded-xl flex items-center justify-center transition-all group-hover:border-amber-500 group-hover:bg-slate-800/40">
+                        <!-- Tenta carregar os formatos possíveis -->
+                        <img id="logoImage" src="logo-empresa.png" alt="Logotipo Paulicomp" class="h-9 w-auto max-w-[170px] object-contain" 
+                             onerror="if (this.src.endsWith('.png')) { this.src = 'logo-empresa'; } else { this.style.display='none'; document.getElementById('logoDefaultSvg').classList.remove('hidden'); }">
+                        
+                        <!-- Logo visual SVG caso a imagem física não seja encontrada -->
                         <div id="logoDefaultSvg" class="hidden flex items-center gap-2.5">
                             <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-600 via-orange-500 to-amber-400 flex items-center justify-center shadow-md shadow-amber-500/20">
                                 <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
