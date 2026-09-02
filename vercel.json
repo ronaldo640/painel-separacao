@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/tiny-sync.js": {
+      "maxDuration": 60
+    }
+  },
+  "crons": [
+    { "path": "/api/tiny-sync", "schedule": "0 7 * * *" }
+  ]
+}

@@ -68,8 +68,16 @@
                     <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
-                    <span>Relatório PDF</span>
+                    <span>Relatório PDF (Paisagem)</span>
                 </button>
+
+                <button id="btnSyncTinyNow" class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all" title="Puxa os pedidos e itens mais recentes do Tiny/Olist para o painel">
+                    <svg id="btnSyncTinyIcon" class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    <span>Sincronizar Tiny/Olist</span>
+                </button>
+                <span id="tinySyncStatusText" class="text-[10px] text-slate-500 hidden sm:inline"></span>
 
                 <button id="btnOpenModal" class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-2 transition-all">
                     <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -188,7 +196,7 @@
                         <span class="w-2.5 h-2.5 bg-amber-500 rounded-sm"></span>
                         Ritmo por Dia (Peças Separadas)
                     </h2>
-                    <p class="text-xs text-slate-400 mt-0.5">Volumetria física diária de picking</p>
+                    <p class="text-xs text-slate-400 mt-0.5" id="chartRitmoSubtitle">Volumetria física diária de picking</p>
                 </div>
                 <div class="relative flex-1 min-h-[280px]">
                     <canvas id="chartRitmoDia"></canvas>
@@ -304,6 +312,95 @@
         </div>
     </div>
 
+    <!-- Template do Relatório PDF (A4 Paisagem, 1 Página) -->
+    <div id="pdfReportContainer" class="fixed -left-[9999px] top-0 z-[-100]">
+        <div id="pdfReportTemplate" style="width: 1100px; height: 780px; max-height: 780px; background: #070b14; color: #f8fafc; padding: 12px 16px; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Inter', sans-serif;">
+
+            <!-- Header Relatório -->
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid #1e293b; padding-bottom: 6px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div id="repLogoHolder" style="display: flex; align-items: center;"></div>
+                    <div style="border-left: 1.5px solid #1e293b; padding-left: 8px;">
+                        <h2 style="font-size: 11px; font-weight: 800; color: #ffffff; text-transform: uppercase; margin: 0; line-height: 1.2;">
+                            Relatório Executivo de Separação, Picking &amp; Curva ABC
+                        </h2>
+                        <span style="font-size: 8px; font-weight: 600; color: #94a3b8; display: block; margin-top: 1px;">
+                            Gestão Multi-Filial de Volume Físico Separado
+                        </span>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <div style="background: rgba(120, 53, 15, 0.4); border: 1px solid #f59e0b; border-radius: 4px; padding: 3px 8px; text-align: right;">
+                        <span style="font-size: 7px; font-weight: 700; color: #fcd34d; text-transform: uppercase; display: block;">Mês Ref.</span>
+                        <span id="repRefMes" style="font-size: 10px; font-weight: 800; color: #ffffff;">-</span>
+                    </div>
+                    <div style="background: rgba(14, 116, 144, 0.35); border: 1px solid #06b6d4; border-radius: 4px; padding: 3px 8px; text-align: right;">
+                        <span style="font-size: 7px; font-weight: 700; color: #67e8f9; text-transform: uppercase; display: block;">Filial</span>
+                        <span id="repRefFilial" style="font-size: 10px; font-weight: 800; color: #ffffff;">Todas</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPIs -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px;">
+                <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 5px 8px; position: relative;">
+                    <div style="position: absolute; top: 0; left: 0; right: 0; height: 2.5px; background: linear-gradient(90deg, #f59e0b, #fb923c);"></div>
+                    <span style="font-size: 7.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Total de Peças (Picking)</span>
+                    <div id="repKpiPecas" style="font-size: 15px; font-weight: 900; color: #ffffff; line-height: 1.1; margin-top: 2px;">0</div>
+                </div>
+                <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 5px 8px; position: relative;">
+                    <div style="position: absolute; top: 0; left: 0; right: 0; height: 2.5px; background: linear-gradient(90deg, #3b82f6, #22d3ee);"></div>
+                    <span style="font-size: 7.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Pedidos de Venda</span>
+                    <div id="repKpiPedidos" style="font-size: 15px; font-weight: 900; color: #ffffff; line-height: 1.1; margin-top: 2px;">0</div>
+                </div>
+                <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 5px 8px; position: relative;">
+                    <div style="position: absolute; top: 0; left: 0; right: 0; height: 2.5px; background: linear-gradient(90deg, #10b981, #2dd4bf);"></div>
+                    <span style="font-size: 7.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Linhas de SKUs Ativas</span>
+                    <div id="repKpiSkus" style="font-size: 15px; font-weight: 900; color: #ffffff; line-height: 1.1; margin-top: 2px;">0</div>
+                </div>
+                <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 5px 8px; position: relative;">
+                    <div style="position: absolute; top: 0; left: 0; right: 0; height: 2.5px; background: linear-gradient(90deg, #a855f7, #ec4899);"></div>
+                    <span style="font-size: 7.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Curva A (Alto Impacto)</span>
+                    <div id="repKpiCurvaA" style="font-size: 13px; font-weight: 900; color: #ffffff; line-height: 1.1; margin-top: 2px;">0 SKUs (0%)</div>
+                </div>
+            </div>
+
+            <!-- Gráficos (1 linha, 3 colunas — espelha o grid da tela) -->
+            <div style="display: grid; grid-template-columns: 0.85fr 1fr 0.7fr; gap: 8px; margin-top: 6px; flex: 1; min-height: 0;">
+                <div style="background: #0b1220; border: 1px solid #1e293b; border-radius: 6px; padding: 5px 8px; display: flex; flex-direction: column; min-height: 0;">
+                    <div style="border-bottom: 1px solid #1e293b; padding-bottom: 2px; margin-bottom: 2px; flex-shrink: 0;">
+                        <span style="font-size: 8.5px; font-weight: 800; color: #ffffff; text-transform: uppercase;">Ritmo por Dia (Peças Separadas)</span>
+                    </div>
+                    <div style="flex: 1; min-height: 0; position: relative; width: 100%; display: flex; align-items: center; justify-content: center;">
+                        <img id="repImgRitmo" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                    </div>
+                </div>
+                <div style="background: #0b1220; border: 1px solid #1e293b; border-radius: 6px; padding: 5px 8px; display: flex; flex-direction: column; min-height: 0;">
+                    <div style="border-bottom: 1px solid #1e293b; padding-bottom: 2px; margin-bottom: 2px; flex-shrink: 0;">
+                        <span style="font-size: 8.5px; font-weight: 800; color: #ffffff; text-transform: uppercase;">Top 10 SKUs Mais Separados</span>
+                    </div>
+                    <div style="flex: 1; min-height: 0; position: relative; width: 100%; display: flex; align-items: center; justify-content: center;">
+                        <img id="repImgTopSkus" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                    </div>
+                </div>
+                <div style="background: #0b1220; border: 1px solid #1e293b; border-radius: 6px; padding: 5px 8px; display: flex; flex-direction: column; min-height: 0;">
+                    <div style="border-bottom: 1px solid #1e293b; padding-bottom: 2px; margin-bottom: 2px; flex-shrink: 0;">
+                        <span style="font-size: 8.5px; font-weight: 800; color: #ffffff; text-transform: uppercase;">Curva ABC (Giro)</span>
+                    </div>
+                    <div style="flex: 1; min-height: 0; position: relative; width: 100%; display: flex; align-items: center; justify-content: center;">
+                        <img id="repImgCurvaAbc" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #1e293b; padding-top: 4px; margin-top: 6px;">
+                <span style="font-size: 7px; color: #64748b;">Paulicomp Logística &amp; Almoxarifado • Gestão Executiva de Separação</span>
+                <span style="font-size: 7px; font-weight: 700; color: #fbbf24;">Página 1 de 1 (Formato Paisagem A4)</span>
+            </div>
+        </div>
+    </div>
+
     <!-- Script de Lógica e Renderização -->
     <script>
         Chart.register(ChartDataLabels);
@@ -362,23 +459,38 @@
             return { abcMap, skuVolumeMap: skuMap, totalQtd };
         }
 
+        // Monta o seletor em hierarquia Ano > Mês: cada ano vira um <optgroup> com uma opção
+        // "Ano Completo" (filtra o ano inteiro) seguida dos meses daquele ano.
         function populatePeriodFilter() {
             const select = document.getElementById('filterMes');
             if (!select) return;
-            const monthSet = new Set();
+            const previousVal = select.value;
+            const yearMap = {};
             database.forEach(d => {
-                if (d.data && d.data.length >= 7) monthSet.add(d.data.substring(0, 7));
+                if (d.data && d.data.length >= 7) {
+                    const [y, m] = d.data.split('-');
+                    if (!yearMap[y]) yearMap[y] = new Set();
+                    yearMap[y].add(m);
+                }
             });
-            const sortedMonths = Array.from(monthSet).sort().reverse();
-            select.innerHTML = '<option value="ALL">Todos os Meses</option>';
-            sortedMonths.forEach(ym => {
-                const [year, month] = ym.split('-');
-                const monthName = ptMonths[parseInt(month, 10) - 1];
-                const opt = document.createElement('option');
-                opt.value = ym;
-                opt.innerText = `${monthName}/${year}`;
-                select.appendChild(opt);
+            const sortedYears = Object.keys(yearMap).sort().reverse();
+            const validValues = new Set(['ALL']);
+            let html = '<option value="ALL">Todos os Meses (Consolidado)</option>';
+            sortedYears.forEach(year => {
+                validValues.add(year);
+                const months = Array.from(yearMap[year]).sort().reverse();
+                html += `<optgroup label="${year}">`;
+                html += `<option value="${year}">Ano Completo — ${year}</option>`;
+                months.forEach(m => {
+                    const ym = `${year}-${m}`;
+                    validValues.add(ym);
+                    const monthName = ptMonths[parseInt(m, 10) - 1];
+                    html += `<option value="${ym}">${monthName}/${year}</option>`;
+                });
+                html += `</optgroup>`;
             });
+            select.innerHTML = html;
+            select.value = validValues.has(previousVal) ? previousVal : 'ALL';
         }
 
         function updateModalStats() {
@@ -395,6 +507,10 @@
             const fFilial = document.getElementById('filterFilial')?.value || 'ALL';
             const fCurva = document.getElementById('filterCurva')?.value || 'ALL';
             const search = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
+
+            // "ALL" ou um ano inteiro (ex: "2026") cobrem vários meses — agrupar por mês evita
+            // um gráfico poluído com dezenas/centenas de barras diárias.
+            const isMultiMonth = (fMes === 'ALL' || fMes.length === 4);
 
             // 1. Calcula Curva ABC no universo dos filtros de Mês e Filial
             const preFiltered = database.filter(d => {
@@ -426,18 +542,39 @@
             document.getElementById('kpiCurvaA').innerText = `${skusA} SKUs (${pctA}%)`;
             updateModalStats();
 
-            // GRÁFICO 1: Ritmo por Dia
-            const dateMap = {};
-            filtered.forEach(d => {
-                const dt = d.data_fmt || 'Sem Data';
-                dateMap[dt] = (dateMap[dt] || 0) + (Number(d.qtd) || 1);
-            });
-            const sortedDates = Object.keys(dateMap).sort((a,b) => {
-                if (a === 'Sem Data') return -1;
-                const [d1,m1,y1] = a.split('/').map(Number);
-                const [d2,m2,y2] = b.split('/').map(Number);
-                return new Date(y1,m1-1,d1) - new Date(y2,m2-1,d2);
-            });
+            // GRÁFICO 1: Ritmo por Dia (ou por Mês, quando a seleção cobre vários meses)
+            const ritmoSub = document.getElementById('chartRitmoSubtitle');
+            let labelsRitmo = [], dataRitmo = [];
+
+            if (isMultiMonth) {
+                if (ritmoSub) ritmoSub.innerText = 'Consolidado por mês';
+                const mMap = {};
+                filtered.forEach(d => {
+                    if (!d.data) return;
+                    const [y, m] = d.data.split('-').map(Number);
+                    const key = `${y}-${String(m).padStart(2, '0')}`;
+                    if (!mMap[key]) mMap[key] = { label: `${ptMonths[m-1].substring(0,3)}/${y}`, qtd: 0 };
+                    mMap[key].qtd += (Number(d.qtd) || 1);
+                });
+                const sortedKeys = Object.keys(mMap).sort();
+                labelsRitmo = sortedKeys.map(k => mMap[k].label);
+                dataRitmo = sortedKeys.map(k => mMap[k].qtd);
+            } else {
+                if (ritmoSub) ritmoSub.innerText = 'Volumetria física diária de picking';
+                const dateMap = {};
+                filtered.forEach(d => {
+                    const dt = d.data_fmt || 'Sem Data';
+                    dateMap[dt] = (dateMap[dt] || 0) + (Number(d.qtd) || 1);
+                });
+                const sortedDates = Object.keys(dateMap).sort((a,b) => {
+                    if (a === 'Sem Data') return -1;
+                    const [d1,m1,y1] = a.split('/').map(Number);
+                    const [d2,m2,y2] = b.split('/').map(Number);
+                    return new Date(y1,m1-1,d1) - new Date(y2,m2-1,d2);
+                });
+                labelsRitmo = sortedDates.map(d => d.substring(0,5));
+                dataRitmo = sortedDates.map(d => dateMap[d]);
+            }
 
             if (chartRitmoDia) chartRitmoDia.destroy();
             const ctx1 = document.getElementById('chartRitmoDia');
@@ -445,9 +582,9 @@
                 chartRitmoDia = new Chart(ctx1.getContext('2d'), {
                     type: 'bar',
                     data: {
-                        labels: sortedDates.map(d => d.substring(0,5)),
+                        labels: labelsRitmo,
                         datasets: [{
-                            data: sortedDates.map(d => dateMap[d]),
+                            data: dataRitmo,
                             backgroundColor: '#f59e0b',
                             borderRadius: 4
                         }]
@@ -627,22 +764,37 @@
 
                     filesCount++;
                     if (filesCount === files.length && newRecords.length > 0) {
-                        database = newRecords;
-                        localStorage.setItem('paulicomp_picking_db', JSON.stringify(database));
-                        populatePeriodFilter();
-                        updateDashboard();
-                        showToast(`<b>${newRecords.length}</b> itens de separação carregados!`, "success");
-
-                        // Sincroniza com Neon
-                        fetch('/api/picking', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(newRecords)
-                        }).catch(console.warn);
+                        const added = mergePickingRecords(newRecords);
+                        if (added.length > 0) {
+                            showToast(`<b>${added.length}</b> novos itens de separação carregados!`, "success");
+                        } else {
+                            showToast("Itens já existentes.", "info");
+                        }
                     }
                 };
                 reader.readAsArrayBuffer(file);
             });
+        }
+
+        // Mescla novos registros na base local (dedup por filial+pedido+sku), persiste no
+        // localStorage e envia ao Neon via /api/picking — usado tanto pela importação de
+        // planilha quanto pela sincronização com a API do Tiny.
+        function mergePickingRecords(newRecords) {
+            if (!newRecords || newRecords.length === 0) return [];
+            const existingKeys = new Set(database.map(d => `${d.filial}_${d.pedido}_${d.sku}`));
+            const uniqueNew = newRecords.filter(d => !existingKeys.has(`${d.filial}_${d.pedido}_${d.sku}`));
+            if (uniqueNew.length > 0) {
+                database = [...database, ...uniqueNew];
+                localStorage.setItem('paulicomp_picking_db', JSON.stringify(database));
+                populatePeriodFilter();
+                updateDashboard();
+                fetch('/api/picking', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(uniqueNew)
+                }).catch(console.warn);
+            }
+            return uniqueNew;
         }
 
         async function syncWithNeon() {
@@ -663,6 +815,116 @@
             }
         }
 
+        // ===================================================================
+        // Tiny ERP (Olist) API Integration — o botão "Sincronizar Tiny/Olist"
+        // chama /api/tiny-sync direto (GET, sem corpo). Essa função lê os
+        // tokens de variáveis de ambiente na própria Vercel e já grava os
+        // itens no Neon — nenhum token passa pelo navegador. Depois de
+        // sincronizar, o painel recarrega os dados via syncWithNeon().
+        // ===================================================================
+        let tinySyncInFlight = false;
+
+        async function syncTinyAll() {
+            if (tinySyncInFlight) return;
+            tinySyncInFlight = true;
+
+            const btn = document.getElementById('btnSyncTinyNow');
+            const icon = document.getElementById('btnSyncTinyIcon');
+            const statusText = document.getElementById('tinySyncStatusText');
+            if (btn) btn.disabled = true;
+            if (icon) icon.classList.add('animate-spin');
+
+            try {
+                const resp = await fetch('/api/tiny-sync');
+                const json = await resp.json();
+
+                if (!json.ok) {
+                    showToast(`Erro ao sincronizar com o Tiny: ${json.error || 'erro desconhecido'}`, "error");
+                    return;
+                }
+                if (json.warning) {
+                    showToast(json.warning, "info");
+                    return;
+                }
+
+                const erros = json.results.filter(r => r.error);
+                if (erros.length > 0) {
+                    showToast(`Falha ao sincronizar ${erros.map(e => e.filial).join(', ')}: ${erros[0].error}`, "error");
+                }
+                if (json.insertedTotal > 0) {
+                    await syncWithNeon();
+                    showToast(`Sincronização concluída: <b>${json.insertedTotal}</b> novo(s) item(ns).`, "success");
+                } else if (erros.length === 0) {
+                    showToast("Sincronizado — nenhum item novo no Tiny.", "info");
+                }
+
+                if (statusText) statusText.textContent = `Última sinc.: ${new Date().toLocaleTimeString('pt-BR')}`;
+            } catch (err) {
+                showToast(`Falha de conexão ao sincronizar: ${err.message}`, "error");
+            } finally {
+                tinySyncInFlight = false;
+                if (btn) btn.disabled = false;
+                if (icon) icon.classList.remove('animate-spin');
+            }
+        }
+
+        function setupTinyAutoSync() {
+            // Sincroniza sozinho a cada 30 min enquanto alguém estiver com o painel aberto.
+            setInterval(syncTinyAll, 30 * 60 * 1000);
+        }
+
+        // Geração do Relatório PDF A4 Paisagem
+        function gerarRelatorioPDF() {
+            showToast("Gerando relatório executivo em PDF (A4 Paisagem)...", "info");
+
+            const selMes = document.getElementById('filterMes');
+            const selFilial = document.getElementById('filterFilial');
+            const mesText = selMes.options[selMes.selectedIndex].text;
+            const filialText = selFilial.options[selFilial.selectedIndex].text;
+
+            document.getElementById('repRefMes').innerText = mesText;
+            document.getElementById('repRefFilial').innerText = filialText;
+
+            const repLogoHolder = document.getElementById('repLogoHolder');
+            repLogoHolder.innerHTML = '';
+            const clonedLogo = document.getElementById('logoWrapper').cloneNode(true);
+            clonedLogo.style.border = 'none'; clonedLogo.style.padding = '0';
+            repLogoHolder.appendChild(clonedLogo);
+
+            document.getElementById('repKpiPecas').innerText = document.getElementById('kpiTotalPecas').innerText;
+            document.getElementById('repKpiPedidos').innerText = document.getElementById('kpiTotalPedidos').innerText;
+            document.getElementById('repKpiSkus').innerText = document.getElementById('kpiTotalSkus').innerText;
+            document.getElementById('repKpiCurvaA').innerText = document.getElementById('kpiCurvaA').innerText;
+
+            try {
+                if (chartRitmoDia) document.getElementById('repImgRitmo').src = chartRitmoDia.toBase64Image('image/png', 1.0);
+                if (chartTopSkus) document.getElementById('repImgTopSkus').src = chartTopSkus.toBase64Image('image/png', 1.0);
+                if (chartCurvaAbc) document.getElementById('repImgCurvaAbc').src = chartCurvaAbc.toBase64Image('image/png', 1.0);
+            } catch(e) {
+                console.warn("Erro ao capturar imagens dos gráficos:", e);
+            }
+
+            const element = document.getElementById('pdfReportTemplate');
+            element.style.display = 'flex';
+
+            const opt = {
+                margin: 0,
+                filename: `Relatorio_Separacao_Paulicomp_${filialText.replace(/[^a-zA-Z0-9]/g, '_')}_${mesText.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#070b14' },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.style.display = 'none';
+                showToast("Relatório em PDF Paisagem gerado com sucesso!", "success");
+            }).catch(err => {
+                element.style.display = 'none';
+                console.error("Erro no PDF:", err);
+                showToast("Erro ao gerar PDF.", "error");
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const saved = localStorage.getItem('paulicomp_picking_db');
             if (saved) {
@@ -672,6 +934,8 @@
             populatePeriodFilter();
             updateDashboard();
             syncWithNeon();
+            syncTinyAll();
+            setupTinyAutoSync();
 
             // Listeners Filtros
             ['filterMes', 'filterFilial', 'filterCurva'].forEach(id => {
@@ -705,8 +969,11 @@
                 syncWithNeon();
             });
 
-            // PDF Print
-            document.getElementById('btnPdfReport')?.addEventListener('click', () => window.print());
+            // Sincronizar com o Tiny/Olist
+            document.getElementById('btnSyncTinyNow')?.addEventListener('click', syncTinyAll);
+
+            // Gerar Relatório PDF
+            document.getElementById('btnPdfReport')?.addEventListener('click', gerarRelatorioPDF);
         });
     </script>
 </body>
