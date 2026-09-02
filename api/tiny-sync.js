@@ -24,9 +24,13 @@ import { ensurePickingTable, insertPickingRows } from './picking.js';
 const TINY_PEDIDOS_URL = 'https://api.tiny.com.br/api2/pedidos.pesquisa.php';
 const TINY_PEDIDO_DETALHE_URL = 'https://api.tiny.com.br/api2/pedido.obter.php';
 const MAX_PAGES = 30; // páginas da busca de pedidos por filial
-const MAX_PEDIDOS_POR_FILIAL = 400; // protege contra timeout/estouro de cota numa única execução
-const DETAIL_CONCURRENCY = 6; // chamadas pedido.obter.php simultâneas por filial
-const LOOKBACK_DAYS = 7; // janela padrão da sincronização de rotina (histórico maior = manual)
+const MAX_PEDIDOS_POR_FILIAL = 100; // protege contra timeout/estouro de cota numa única execução (sequencial + retries cabe no maxDuration de 60s)
+const DETAIL_CONCURRENCY = 1; // chamadas pedido.obter.php simultâneas por filial (o Tiny bloqueia com concorrência alta)
+const DETAIL_STAGGER_MS = 300; // espaçamento mínimo entre cada chamada de detalhe
+const DETAIL_MAX_RETRIES = 3; // tentativas extras quando o Tiny responde "API Bloqueada"
+const LOOKBACK_DAYS = 3; // janela padrão da sincronização de rotina (histórico maior = manual)
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 const TINY_FILIAIS = [
   { key: 'SP', nome: 'PAULICOMP SP', env: 'TINY_TOKEN_SP' },
@@ -71,7 +75,7 @@ async function listPedidoIds(token, dataInicial, dataFinal) {
   return { ids, totalPaginas };
 }
 
-async function fetchPedidoDetalhe(token, id) {
+async function fetchPedidoDetalheUmaVez(token, id) {
   const params = new URLSearchParams({ token, formato: 'json', id: String(id) });
   const resp = await fetch(`${TINY_PEDIDO_DETALHE_URL}?${params.toString()}`);
   const json = await resp.json();
@@ -81,6 +85,22 @@ async function fetchPedidoDetalhe(token, id) {
     throw new Error(msg);
   }
   return retorno.pedido;
+}
+
+// O Tiny bloqueia temporariamente ("API Bloqueada - Excedido o número de acessos") quando
+// muitas chamadas chegam em sequência rápida — isso é esperado aqui, já que cada pedido exige
+// uma chamada própria. Em vez de desistir, espera um pouco e tenta de novo algumas vezes.
+async function fetchPedidoDetalhe(token, id, tentativa = 1) {
+  try {
+    return await fetchPedidoDetalheUmaVez(token, id);
+  } catch (err) {
+    const bloqueado = /bloqueada|excedido/i.test(err.message || '');
+    if (bloqueado && tentativa <= DETAIL_MAX_RETRIES) {
+      await sleep(800 * tentativa);
+      return fetchPedidoDetalhe(token, id, tentativa + 1);
+    }
+    throw err;
+  }
 }
 
 function mapPedidoParaItens(pedido, filialNome) {
@@ -105,13 +125,15 @@ function mapPedidoParaItens(pedido, filialNome) {
   });
 }
 
-// Roda `worker` sobre `items` com no máximo `limit` chamadas simultâneas.
-async function mapWithConcurrency(items, limit, worker) {
+// Roda `worker` sobre `items` com no máximo `limit` chamadas simultâneas, espaçando o início
+// de cada nova chamada em `staggerMs` para não estourar o limite de requisições do Tiny.
+async function mapWithConcurrency(items, limit, worker, staggerMs = 0) {
   const results = new Array(items.length);
   let cursor = 0;
   async function runNext() {
     while (cursor < items.length) {
       const i = cursor++;
+      if (staggerMs > 0 && i > 0) await sleep(staggerMs);
       results[i] = await worker(items[i]);
     }
   }
@@ -173,7 +195,7 @@ export default async function handler(req, res) {
           falhas++;
           ultimoErroDetalhe = err.message;
           return null;
-        })
+        }), DETAIL_STAGGER_MS
       );
 
       const rows = pedidos.flatMap(p => mapPedidoParaItens(p, f.nome));

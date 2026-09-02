@@ -27,9 +27,12 @@ API do Tiny não retorna os itens na busca de pedidos — é preciso 1 chamada
 extra (`pedido.obter.php`) por pedido encontrado. Por isso:
 
 - A sincronização de rotina (botão **Sincronizar Tiny/Olist**, o auto-sync a
-  cada 30 min e o Cron diário) cobre só os **últimos 7 dias** por padrão —
-  uma janela maior arriscaria estourar o tempo máximo da função ou tomar
-  bloqueio de acesso da API do Tiny.
+  cada 30 min e o Cron diário) cobre só os **últimos 3 dias** por padrão, com
+  no máximo 100 pedidos por filial por execução — uma janela ou volume maior
+  arriscaria estourar o tempo máximo da função. As chamadas de detalhe do
+  pedido são feitas uma por vez (com pequenas pausas e novas tentativas
+  automáticas), porque o Tiny bloqueia temporariamente quando recebe muitas
+  chamadas em sequência rápida.
 - Para preencher histórico maior, chame `/api/tiny-sync` manualmente com
   `?filial=SP&dataInicial=01/01/2025&dataFinal=31/01/2025` (um mês por vez,
   por filial), do mesmo jeito feito no painel de expedição.
