@@ -822,7 +822,13 @@
             return uniqueNew;
         }
 
-        async function syncWithNeon() {
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+        // A base já passa de 8MB numa única resposta — em conexões mais lentas ou instáveis
+        // a busca pode falhar sem ser um erro real do servidor, então tenta de novo algumas
+        // vezes antes de desistir e avisar o usuário.
+        async function syncWithNeon(tentativa = 1) {
+            const MAX_TENTATIVAS = 3;
             try {
                 const res = await fetch('/api/picking');
                 if (res.ok) {
@@ -834,12 +840,16 @@
                         updateDashboard();
                         showToast(`Sincronizado com Neon: ${database.length} registros.`, "success");
                     }
-                } else {
-                    showToast("Não foi possível atualizar com o Neon — exibindo dados salvos localmente.", "error");
+                    return;
                 }
+                throw new Error(`HTTP ${res.status}`);
             } catch (err) {
-                console.warn("Offline Neon:", err);
-                showToast("Sem conexão com o Neon — exibindo dados salvos localmente.", "error");
+                console.warn(`Falha ao sincronizar com Neon (tentativa ${tentativa}):`, err);
+                if (tentativa < MAX_TENTATIVAS) {
+                    await sleep(1500 * tentativa);
+                    return syncWithNeon(tentativa + 1);
+                }
+                showToast("Sem conexão com o Neon após várias tentativas — exibindo dados salvos localmente.", "error");
             }
         }
 
