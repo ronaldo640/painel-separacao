@@ -423,6 +423,18 @@
         // que o navegador fique preso mostrando meses antigos incompletos).
         const PICKING_CACHE_KEY = 'paulicomp_picking_db_v2';
 
+        // A base já passa de 8MB em JSON, acima da cota de localStorage de muitos navegadores
+        // (normalmente 5-10MB por site). Se estourar, isso NUNCA pode impedir o painel de
+        // exibir os dados já carregados na memória — o cache local é só um atalho para abrir
+        // mais rápido na próxima visita, não a fonte de dados em si.
+        function saveToLocalCache(db) {
+            try {
+                localStorage.setItem(PICKING_CACHE_KEY, JSON.stringify(db));
+            } catch (err) {
+                console.warn("Não foi possível salvar cache local (provável cota excedida):", err);
+            }
+        }
+
         let chartRitmoDia = null, chartTopSkus = null, chartCurvaAbc = null;
         let lastAbcMap = {}; // última classificação de curva calculada em updateDashboard(), reaproveitada na exportação Excel
         let lastFilteredData = []; // último conjunto filtrado (Mês/Filial/Curva/Busca), reaproveitado na exportação Excel
@@ -810,7 +822,7 @@
             const uniqueNew = newRecords.filter(d => !existingKeys.has(`${d.filial}_${d.pedido}_${d.sku}`));
             if (uniqueNew.length > 0) {
                 database = [...database, ...uniqueNew];
-                localStorage.setItem(PICKING_CACHE_KEY, JSON.stringify(database));
+                saveToLocalCache(database);
                 populatePeriodFilter();
                 updateDashboard();
                 fetch('/api/picking', {
@@ -835,7 +847,7 @@
                     const data = await res.json();
                     if (Array.isArray(data) && data.length > 0) {
                         database = data;
-                        localStorage.setItem(PICKING_CACHE_KEY, JSON.stringify(database));
+                        saveToLocalCache(database);
                         populatePeriodFilter();
                         updateDashboard();
                         showToast(`Sincronizado com Neon: ${database.length} registros.`, "success");
