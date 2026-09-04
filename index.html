@@ -629,6 +629,7 @@
                 skuVolMap[d.sku] = (skuVolMap[d.sku] || 0) + (Number(d.qtd) || 1);
             });
             const sortedSkus = Object.entries(skuVolMap).sort((a,b) => b[1] - a[1]).slice(0, 10);
+            const CORES_CURVA = { 'Classe A': '#f59e0b', 'Classe B': '#3b82f6', 'Classe C': '#a855f7' };
 
             if (chartTopSkus) chartTopSkus.destroy();
             const ctx2 = document.getElementById('chartTopSkus');
@@ -639,7 +640,9 @@
                         labels: sortedSkus.map(s => s[0].substring(0, 10)),
                         datasets: [{
                             data: sortedSkus.map(s => s[1]),
-                            backgroundColor: '#ea580c',
+                            // Cada barra na cor da curva do SKU (mesma paleta do gráfico Curva ABC),
+                            // pra ver de bate-pronto se os mais separados são realmente prioridade A.
+                            backgroundColor: sortedSkus.map(s => CORES_CURVA[abcMap[s[0]] || 'Classe C']),
                             borderRadius: 4
                         }]
                     },
