@@ -123,6 +123,17 @@
                         </select>
                     </div>
 
+                    <!-- Janela de cálculo da Curva ABC (demanda recente, não o histórico todo) -->
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-semibold text-slate-400">Janela ABC:</span>
+                        <select id="filterJanelaAbc" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-md px-2.5 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer">
+                            <option value="30">Últimos 30 dias</option>
+                            <option value="60">Últimos 60 dias</option>
+                            <option value="90" selected>Últimos 90 dias</option>
+                            <option value="120">Últimos 120 dias</option>
+                        </select>
+                    </div>
+
                     <!-- Input de Busca -->
                     <div class="relative">
                         <input type="text" id="searchInput" placeholder="Buscar SKU ou Produto..." class="bg-slate-800/90 border border-slate-700 text-white text-xs rounded-md pl-8 pr-3 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none w-52">
@@ -224,7 +235,7 @@
                         <span class="w-2.5 h-2.5 bg-purple-500 rounded-sm"></span>
                         Curva ABC (Giro)
                     </h2>
-                    <p class="text-xs text-slate-400 mt-0.5">Concentração do volume (%)</p>
+                    <p class="text-xs text-slate-400 mt-0.5" id="curvaAbcSubtitle">Concentração do volume (%)</p>
                 </div>
                 <div class="relative flex-1 min-h-[280px] flex items-center justify-center">
                     <canvas id="chartCurvaAbc"></canvas>
@@ -410,6 +421,7 @@
         let database = [];
 
         let chartRitmoDia = null, chartTopSkus = null, chartCurvaAbc = null;
+        let lastAbcMap = {}; // última classificação de curva calculada em updateDashboard(), reaproveitada na exportação Excel
         const ptMonths = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
         function showToast(message, type = 'success') {
@@ -498,13 +510,32 @@
             // um gráfico poluído com dezenas/centenas de barras diárias.
             const isMultiMonth = (fMes === 'ALL' || fMes.length === 4);
 
-            // 1. Calcula Curva ABC no universo dos filtros de Mês e Filial
+            // 1a. A Curva ABC é calculada sobre uma janela recente fixa (30/60/90/120 dias, à
+            // escolha), não sobre o filtro de Mês — decisão operacional de picking deve
+            // refletir a demanda de agora, não misturar anos de histórico (um SKU que vendia
+            // muito em 2023 e saiu de linha não deveria continuar pesando como Classe A hoje).
+            // Ainda respeita o filtro de Filial, já que o giro pode variar bastante entre elas.
+            const janelaAbcDias = parseInt(document.getElementById('filterJanelaAbc')?.value || '90', 10);
+            let maxData = null;
+            database.forEach(d => { if (d.data && (!maxData || d.data > maxData)) maxData = d.data; });
+            const abcBase = database.filter(d => {
+                const matchFilial = (fFilial === 'ALL' || d.filial === fFilial);
+                if (!matchFilial || !d.data || !maxData) return false;
+                const diffDias = (new Date(maxData) - new Date(d.data)) / 86400000;
+                return diffDias >= 0 && diffDias < janelaAbcDias;
+            });
+            const { abcMap } = computeAbcCurve(abcBase);
+            lastAbcMap = abcMap;
+            const curvaAbcSub = document.getElementById('curvaAbcSubtitle');
+            if (curvaAbcSub) curvaAbcSub.innerText = `Concentração do volume (%) — últimos ${janelaAbcDias} dias`;
+
+            // 1b. O restante do painel (KPIs, gráficos de volume, tabela) continua respeitando
+            // o filtro de Mês normalmente — só a classificação de curva usa a janela acima.
             const preFiltered = database.filter(d => {
                 const matchMes = (fMes === 'ALL' || (d.data && d.data.startsWith(fMes)));
                 const matchFilial = (fFilial === 'ALL' || d.filial === fFilial);
                 return matchMes && matchFilial;
             });
-            const { abcMap } = computeAbcCurve(preFiltered);
 
             // 2. Aplica filtro de Curva e Busca
             const filtered = preFiltered.filter(d => {
@@ -929,7 +960,7 @@
             setupTinyAutoSync();
 
             // Listeners Filtros
-            ['filterMes', 'filterFilial', 'filterCurva'].forEach(id => {
+            ['filterMes', 'filterFilial', 'filterCurva', 'filterJanelaAbc'].forEach(id => {
                 document.getElementById(id)?.addEventListener('change', updateDashboard);
             });
             document.getElementById('searchInput')?.addEventListener('input', updateDashboard);
@@ -946,9 +977,10 @@
                 e.target.value = '';
             });
 
-            // Exportar Excel
+            // Exportar Excel (com a coluna "Curva", igual ao Romaneio Operacional de Picking na tela)
             document.getElementById('btnExportExcel')?.addEventListener('click', () => {
-                const ws = XLSX.utils.json_to_sheet(database);
+                const dadosComCurva = database.map(d => ({ ...d, curva: lastAbcMap[d.sku] || 'Classe C' }));
+                const ws = XLSX.utils.json_to_sheet(dadosComCurva);
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "Picking_Paulicomp");
                 XLSX.writeFile(wb, "Romaneio_Picking_Paulicomp.xlsx");
