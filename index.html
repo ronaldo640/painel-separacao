@@ -419,6 +419,9 @@
         // Base local — populada via syncWithNeon()/syncTinyAll() ao carregar a página.
         // Sem dados de exemplo: a base real vive só no Neon.
         let database = [];
+        // v2: invalida caches locais salvos antes do backfill histórico completo (evita
+        // que o navegador fique preso mostrando meses antigos incompletos).
+        const PICKING_CACHE_KEY = 'paulicomp_picking_db_v2';
 
         let chartRitmoDia = null, chartTopSkus = null, chartCurvaAbc = null;
         let lastAbcMap = {}; // última classificação de curva calculada em updateDashboard(), reaproveitada na exportação Excel
@@ -807,7 +810,7 @@
             const uniqueNew = newRecords.filter(d => !existingKeys.has(`${d.filial}_${d.pedido}_${d.sku}`));
             if (uniqueNew.length > 0) {
                 database = [...database, ...uniqueNew];
-                localStorage.setItem('paulicomp_picking_db', JSON.stringify(database));
+                localStorage.setItem(PICKING_CACHE_KEY, JSON.stringify(database));
                 populatePeriodFilter();
                 updateDashboard();
                 fetch('/api/picking', {
@@ -826,14 +829,17 @@
                     const data = await res.json();
                     if (Array.isArray(data) && data.length > 0) {
                         database = data;
-                        localStorage.setItem('paulicomp_picking_db', JSON.stringify(database));
+                        localStorage.setItem(PICKING_CACHE_KEY, JSON.stringify(database));
                         populatePeriodFilter();
                         updateDashboard();
                         showToast(`Sincronizado com Neon: ${database.length} registros.`, "success");
                     }
+                } else {
+                    showToast("Não foi possível atualizar com o Neon — exibindo dados salvos localmente.", "error");
                 }
             } catch (err) {
                 console.warn("Offline Neon:", err);
+                showToast("Sem conexão com o Neon — exibindo dados salvos localmente.", "error");
             }
         }
 
@@ -953,7 +959,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            const saved = localStorage.getItem('paulicomp_picking_db');
+            const saved = localStorage.getItem(PICKING_CACHE_KEY);
             if (saved) {
                 try { database = JSON.parse(saved); } catch(e){}
             }
