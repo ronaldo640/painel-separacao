@@ -419,6 +419,11 @@
         // Base local — populada via syncWithNeon()/syncTinyAll() ao carregar a página.
         // Sem dados de exemplo: a base real vive só no Neon.
         let database = [];
+        // Conta cada chamada a syncWithNeon(): como a resposta é grande (8MB+), duas buscas
+        // podem ficar em voo ao mesmo tempo (carga inicial da página + sincronização manual/
+        // automática) e resolver fora de ordem. Só a última chamada disparada pode aplicar seu
+        // resultado — evita que uma busca mais lenta e antiga sobrescreva dados recém-sincronizados.
+        let syncRequestSeq = 0;
         // v2: invalida caches locais salvos antes do backfill histórico completo (evita
         // que o navegador fique preso mostrando meses antigos incompletos).
         const PICKING_CACHE_KEY = 'paulicomp_picking_db_v2';
@@ -839,12 +844,15 @@
         // A base já passa de 8MB numa única resposta — em conexões mais lentas ou instáveis
         // a busca pode falhar sem ser um erro real do servidor, então tenta de novo algumas
         // vezes antes de desistir e avisar o usuário.
-        async function syncWithNeon(tentativa = 1) {
+        async function syncWithNeon(tentativa = 1, requestId = ++syncRequestSeq) {
             const MAX_TENTATIVAS = 3;
             try {
                 const res = await fetch('/api/picking');
                 if (res.ok) {
                     const data = await res.json();
+                    // Descarta a resposta se uma chamada mais recente a syncWithNeon() já foi
+                    // disparada enquanto esta estava em voo — ela venceria a corrida por engano.
+                    if (requestId !== syncRequestSeq) return;
                     if (Array.isArray(data) && data.length > 0) {
                         database = data;
                         saveToLocalCache(database);
@@ -857,9 +865,10 @@
                 throw new Error(`HTTP ${res.status}`);
             } catch (err) {
                 console.warn(`Falha ao sincronizar com Neon (tentativa ${tentativa}):`, err);
+                if (requestId !== syncRequestSeq) return;
                 if (tentativa < MAX_TENTATIVAS) {
                     await sleep(1500 * tentativa);
-                    return syncWithNeon(tentativa + 1);
+                    return syncWithNeon(tentativa + 1, requestId);
                 }
                 showToast("Sem conexão com o Neon após várias tentativas — exibindo dados salvos localmente.", "error");
             }
