@@ -422,6 +422,7 @@
 
         let chartRitmoDia = null, chartTopSkus = null, chartCurvaAbc = null;
         let lastAbcMap = {}; // última classificação de curva calculada em updateDashboard(), reaproveitada na exportação Excel
+        let lastFilteredData = []; // último conjunto filtrado (Mês/Filial/Curva/Busca), reaproveitado na exportação Excel
         const ptMonths = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
         function showToast(message, type = 'success') {
@@ -544,6 +545,7 @@
                 const matchSearch = (!search || (d.produto && d.produto.toLowerCase().includes(search)) || (d.sku && d.sku.toLowerCase().includes(search)) || (d.pedido && d.pedido.includes(search)));
                 return matchCurva && matchSearch;
             });
+            lastFilteredData = filtered; // reaproveitado na exportação Excel, pra exportar só o que está filtrado na tela
 
             // KPIs
             const totalPecas = filtered.reduce((acc, curr) => acc + (Number(curr.qtd) || 1), 0);
@@ -977,9 +979,14 @@
                 e.target.value = '';
             });
 
-            // Exportar Excel (com a coluna "Curva", igual ao Romaneio Operacional de Picking na tela)
+            // Exportar Excel — só o que está filtrado na tela (Mês/Filial/Curva/Busca), com a
+            // coluna "Curva", igual ao Romaneio Operacional de Picking exibido.
             document.getElementById('btnExportExcel')?.addEventListener('click', () => {
-                const dadosComCurva = database.map(d => ({ ...d, curva: lastAbcMap[d.sku] || 'Classe C' }));
+                if (lastFilteredData.length === 0) {
+                    showToast("Nenhum registro para exportar com os filtros atuais.", "error");
+                    return;
+                }
+                const dadosComCurva = lastFilteredData.map(d => ({ ...d, curva: lastAbcMap[d.sku] || 'Classe C' }));
                 const ws = XLSX.utils.json_to_sheet(dadosComCurva);
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "Picking_Paulicomp");
