@@ -123,17 +123,6 @@
                         </select>
                     </div>
 
-                    <!-- Janela de cálculo da Curva ABC (demanda recente, não o histórico todo) -->
-                    <div class="flex items-center gap-1.5">
-                        <span class="text-xs font-semibold text-slate-400">Janela ABC:</span>
-                        <select id="filterJanelaAbc" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-md px-2.5 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer">
-                            <option value="30">Últimos 30 dias</option>
-                            <option value="60">Últimos 60 dias</option>
-                            <option value="90" selected>Últimos 90 dias</option>
-                            <option value="120">Últimos 120 dias</option>
-                        </select>
-                    </div>
-
                     <!-- Input de Busca -->
                     <div class="relative">
                         <input type="text" id="searchInput" placeholder="Buscar SKU ou Produto..." class="bg-slate-800/90 border border-slate-700 text-white text-xs rounded-md pl-8 pr-3 py-1.5 focus:ring-2 focus:ring-amber-500 outline-none w-52">
@@ -239,6 +228,7 @@
                 </div>
                 <div class="relative flex-1 min-h-[280px] flex items-center justify-center">
                     <canvas id="chartCurvaAbc"></canvas>
+                    <p id="curvaAbcIndisponivelMsg" class="text-xs text-slate-500 text-center px-4 hidden">Selecione um mês ou ano no filtro acima para calcular a Curva ABC daquele período.</p>
                 </div>
             </div>
 
@@ -442,6 +432,7 @@
 
         let chartRitmoDia = null, chartTopSkus = null, chartCurvaAbc = null;
         let lastAbcMap = {}; // última classificação de curva calculada em updateDashboard(), reaproveitada na exportação Excel
+        let lastCurvaIndisponivel = false; // true quando "Todos os Meses" está selecionado (sem período pra calcular a curva)
         let lastFilteredData = []; // último conjunto filtrado (Mês/Filial/Curva/Busca), reaproveitado na exportação Excel
         const ptMonths = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -531,24 +522,77 @@
             // um gráfico poluído com dezenas/centenas de barras diárias.
             const isMultiMonth = (fMes === 'ALL' || fMes.length === 4);
 
-            // 1a. A Curva ABC é calculada sobre uma janela recente fixa (30/60/90/120 dias, à
-            // escolha), não sobre o filtro de Mês — decisão operacional de picking deve
-            // refletir a demanda de agora, não misturar anos de histórico (um SKU que vendia
-            // muito em 2023 e saiu de linha não deveria continuar pesando como Classe A hoje).
-            // Ainda respeita o filtro de Filial, já que o giro pode variar bastante entre elas.
-            const janelaAbcDias = parseInt(document.getElementById('filterJanelaAbc')?.value || '90', 10);
+            // 1a. A Curva ABC agora reflete o período selecionado no filtro de Mês — faz mais
+            // sentido pra quem está analisando Agosto/2025 ver a curva daquele mês, não a de
+            // hoje. Períodos com poucos dias de dados (ex: mês corrente ainda no começo) caem
+            // pra uma janela fixa de 90 dias, já que poucos dias não dão uma classificação
+            // estável. "Todos os Meses" mistura anos demais pra fazer sentido — nesse caso a
+            // Curva ABC fica indisponível e pede pra escolher um período.
+            const MIN_DIAS_PERIODO = 30;
+            const FALLBACK_DIAS = 90;
+
             let maxData = null;
             database.forEach(d => { if (d.data && (!maxData || d.data > maxData)) maxData = d.data; });
-            const abcBase = database.filter(d => {
-                const matchFilial = (fFilial === 'ALL' || d.filial === fFilial);
-                if (!matchFilial || !d.data || !maxData) return false;
-                const diffDias = (new Date(maxData) - new Date(d.data)) / 86400000;
-                return diffDias >= 0 && diffDias < janelaAbcDias;
-            });
-            const { abcMap } = computeAbcCurve(abcBase);
-            lastAbcMap = abcMap;
+
             const curvaAbcSub = document.getElementById('curvaAbcSubtitle');
-            if (curvaAbcSub) curvaAbcSub.innerText = `Concentração do volume (%) — últimos ${janelaAbcDias} dias`;
+            let abcMap = {};
+            let curvaIndisponivel = (fMes === 'ALL');
+
+            if (curvaIndisponivel) {
+                if (curvaAbcSub) curvaAbcSub.innerText = 'Selecione um mês ou ano para calcular a Curva ABC';
+            } else {
+                let periodStart, periodEnd;
+                if (fMes.length === 4) { // ano completo, ex: "2026"
+                    periodStart = `${fMes}-01-01`;
+                    periodEnd = `${fMes}-12-31`;
+                } else { // mês específico, ex: "2026-09"
+                    const [y, m] = fMes.split('-').map(Number);
+                    periodStart = `${fMes}-01`;
+                    periodEnd = `${fMes}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+                }
+                const periodEndCapped = (maxData && maxData < periodEnd) ? maxData : periodEnd;
+                const temDadosNoPeriodo = maxData && periodEndCapped >= periodStart;
+                const elapsedDias = temDadosNoPeriodo
+                    ? Math.floor((new Date(periodEndCapped) - new Date(periodStart)) / 86400000) + 1
+                    : 0;
+
+                const usandoFallback = elapsedDias < MIN_DIAS_PERIODO && maxData;
+                const windowEnd = usandoFallback ? maxData : periodEndCapped;
+                const windowStart = usandoFallback
+                    ? new Date(new Date(maxData).getTime() - (FALLBACK_DIAS - 1) * 86400000).toISOString().substring(0, 10)
+                    : periodStart;
+
+                const abcBase = database.filter(d => {
+                    const matchFilial = (fFilial === 'ALL' || d.filial === fFilial);
+                    return matchFilial && d.data && d.data >= windowStart && d.data <= windowEnd;
+                });
+                abcMap = computeAbcCurve(abcBase).abcMap;
+
+                if (curvaAbcSub) {
+                    if (usandoFallback) {
+                        curvaAbcSub.innerText = `Poucos dias de dados no período — usando os últimos ${FALLBACK_DIAS} dias`;
+                    } else {
+                        const label = fMes.length === 4 ? `Ano ${fMes}` : `${ptMonths[parseInt(fMes.split('-')[1], 10) - 1]}/${fMes.split('-')[0]}`;
+                        curvaAbcSub.innerText = `Concentração do volume (%) — ${label}`;
+                    }
+                }
+            }
+            lastAbcMap = abcMap;
+            lastCurvaIndisponivel = curvaIndisponivel;
+
+            const curvaAbcCanvas = document.getElementById('chartCurvaAbc');
+            const curvaAbcMsg = document.getElementById('curvaAbcIndisponivelMsg');
+            if (curvaAbcCanvas) curvaAbcCanvas.classList.toggle('hidden', curvaIndisponivel);
+            if (curvaAbcMsg) curvaAbcMsg.classList.toggle('hidden', !curvaIndisponivel);
+            const filterCurvaEl = document.getElementById('filterCurva');
+            if (filterCurvaEl) {
+                filterCurvaEl.disabled = curvaIndisponivel;
+                filterCurvaEl.classList.toggle('opacity-50', curvaIndisponivel);
+                filterCurvaEl.classList.toggle('cursor-not-allowed', curvaIndisponivel);
+            }
+
+            // Sku sem classificação (curva indisponível) usa 'N/D' em vez de presumir Classe C.
+            const getCurva = (sku) => curvaIndisponivel ? 'N/D' : (abcMap[sku] || 'Classe C');
 
             // 1b. O restante do painel (KPIs, gráficos de volume, tabela) continua respeitando
             // o filtro de Mês normalmente — só a classificação de curva usa a janela acima.
@@ -558,10 +602,9 @@
                 return matchMes && matchFilial;
             });
 
-            // 2. Aplica filtro de Curva e Busca
+            // 2. Aplica filtro de Curva e Busca (curva não filtra nada quando indisponível)
             const filtered = preFiltered.filter(d => {
-                const curva = abcMap[d.sku] || 'Classe C';
-                const matchCurva = (fCurva === 'ALL' || curva === fCurva);
+                const matchCurva = curvaIndisponivel || fCurva === 'ALL' || getCurva(d.sku) === fCurva;
                 const matchSearch = (!search || (d.produto && d.produto.toLowerCase().includes(search)) || (d.sku && d.sku.toLowerCase().includes(search)) || (d.pedido && d.pedido.includes(search)));
                 return matchCurva && matchSearch;
             });
@@ -578,7 +621,7 @@
             document.getElementById('kpiTotalPecas').innerText = totalPecas.toLocaleString('pt-BR');
             document.getElementById('kpiTotalPedidos').innerText = totalPedidos.toLocaleString('pt-BR');
             document.getElementById('kpiTotalSkus').innerText = totalSkus.toLocaleString('pt-BR');
-            document.getElementById('kpiCurvaA').innerText = `${skusA} SKUs (${pctA}%)`;
+            document.getElementById('kpiCurvaA').innerText = curvaIndisponivel ? 'Selecione um mês' : `${skusA} SKUs (${pctA}%)`;
             updateModalStats();
 
             // GRÁFICO 1: Ritmo por Dia (ou por Mês, quando a seleção cobre vários meses)
@@ -649,7 +692,7 @@
                 skuVolMap[d.sku] = (skuVolMap[d.sku] || 0) + (Number(d.qtd) || 1);
             });
             const sortedSkus = Object.entries(skuVolMap).sort((a,b) => b[1] - a[1]).slice(0, 10);
-            const CORES_CURVA = { 'Classe A': '#f59e0b', 'Classe B': '#3b82f6', 'Classe C': '#a855f7' };
+            const CORES_CURVA = { 'Classe A': '#f59e0b', 'Classe B': '#3b82f6', 'Classe C': '#a855f7', 'N/D': '#64748b' };
 
             if (chartTopSkus) chartTopSkus.destroy();
             const ctx2 = document.getElementById('chartTopSkus');
@@ -662,7 +705,7 @@
                             data: sortedSkus.map(s => s[1]),
                             // Cada barra na cor da curva do SKU (mesma paleta do gráfico Curva ABC),
                             // pra ver de bate-pronto se os mais separados são realmente prioridade A.
-                            backgroundColor: sortedSkus.map(s => CORES_CURVA[abcMap[s[0]] || 'Classe C']),
+                            backgroundColor: sortedSkus.map(s => CORES_CURVA[getCurva(s[0])]),
                             borderRadius: 4
                         }]
                     },
@@ -681,17 +724,18 @@
                 });
             }
 
-            // GRÁFICO 3: Curva ABC (Giro)
+            // GRÁFICO 3: Curva ABC (Giro) — não faz sentido sem um período selecionado
+            if (chartCurvaAbc) { chartCurvaAbc.destroy(); chartCurvaAbc = null; }
             let qtdA = 0, qtdB = 0, qtdC = 0;
+            if (!curvaIndisponivel) {
             filtered.forEach(d => {
-                const c = abcMap[d.sku] || 'Classe C';
+                const c = getCurva(d.sku);
                 const q = Number(d.qtd) || 1;
                 if (c === 'Classe A') qtdA += q;
                 else if (c === 'Classe B') qtdB += q;
                 else qtdC += q;
             });
 
-            if (chartCurvaAbc) chartCurvaAbc.destroy();
             const ctx3 = document.getElementById('chartCurvaAbc');
             if (ctx3) {
                 chartCurvaAbc = new Chart(ctx3.getContext('2d'), {
@@ -717,6 +761,7 @@
                     }
                 });
             }
+            }
 
             // TABELA
             const tbody = document.getElementById('tableBody');
@@ -724,8 +769,8 @@
                 tbody.innerHTML = '';
                 document.getElementById('tableRecordCount').innerText = `Mostrando ${Math.min(50, filtered.length)} de ${filtered.length} registros`;
                 filtered.slice(0, 50).forEach(row => {
-                    const c = abcMap[row.sku] || 'Classe C';
-                    const cClass = c === 'Classe A' ? 'bg-amber-950 text-amber-300 border border-amber-800' : (c === 'Classe B' ? 'bg-blue-950 text-blue-300 border border-blue-800' : 'bg-purple-950 text-purple-300 border border-purple-800');
+                    const c = getCurva(row.sku);
+                    const cClass = c === 'Classe A' ? 'bg-amber-950 text-amber-300 border border-amber-800' : (c === 'Classe B' ? 'bg-blue-950 text-blue-300 border border-blue-800' : (c === 'N/D' ? 'bg-slate-800 text-slate-400 border border-slate-700' : 'bg-purple-950 text-purple-300 border border-purple-800'));
                     const filColor = row.filial === 'PAULICOMP SP' ? 'text-blue-400' : (row.filial === 'PAULICOMP SUL' ? 'text-cyan-400' : 'text-amber-400');
 
                     const tr = document.createElement('tr');
@@ -1002,7 +1047,7 @@
             setupTinyAutoSync();
 
             // Listeners Filtros
-            ['filterMes', 'filterFilial', 'filterCurva', 'filterJanelaAbc'].forEach(id => {
+            ['filterMes', 'filterFilial', 'filterCurva'].forEach(id => {
                 document.getElementById(id)?.addEventListener('change', updateDashboard);
             });
             document.getElementById('searchInput')?.addEventListener('input', updateDashboard);
@@ -1026,7 +1071,7 @@
                     showToast("Nenhum registro para exportar com os filtros atuais.", "error");
                     return;
                 }
-                const dadosComCurva = lastFilteredData.map(d => ({ ...d, curva: lastAbcMap[d.sku] || 'Classe C' }));
+                const dadosComCurva = lastFilteredData.map(d => ({ ...d, curva: lastCurvaIndisponivel ? 'N/D' : (lastAbcMap[d.sku] || 'Classe C') }));
                 const ws = XLSX.utils.json_to_sheet(dadosComCurva);
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "Picking_Paulicomp");
