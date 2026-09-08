@@ -525,11 +525,11 @@
             // 1a. A Curva ABC agora reflete o período selecionado no filtro de Mês — faz mais
             // sentido pra quem está analisando Agosto/2025 ver a curva daquele mês, não a de
             // hoje. Períodos com poucos dias de dados (ex: mês corrente ainda no começo) caem
-            // pra uma janela fixa de 90 dias, já que poucos dias não dão uma classificação
+            // pra uma janela fixa de 30 dias, já que poucos dias não dão uma classificação
             // estável. "Todos os Meses" mistura anos demais pra fazer sentido — nesse caso a
             // Curva ABC fica indisponível e pede pra escolher um período.
             const MIN_DIAS_PERIODO = 30;
-            const FALLBACK_DIAS = 90;
+            const FALLBACK_DIAS = 30;
 
             let maxData = null;
             database.forEach(d => { if (d.data && (!maxData || d.data > maxData)) maxData = d.data; });
@@ -630,6 +630,9 @@
             // por dia (como antes).
             const ritmoSub = document.getElementById('chartRitmoSubtitle');
             let labelsRitmo = [], dataRitmo = [];
+            // Visão diária (um mês específico) vira linha, igual ao padrão do dashboard de
+            // Expedição — barra fica só para as visões consolidadas (ano/mês).
+            const isDailyView = !(fMes === 'ALL' || isMultiMonth);
 
             if (fMes === 'ALL') {
                 if (ritmoSub) ritmoSub.innerText = 'Consolidado por ano';
@@ -676,13 +679,18 @@
             const ctx1 = document.getElementById('chartRitmoDia');
             if (ctx1) {
                 chartRitmoDia = new Chart(ctx1.getContext('2d'), {
-                    type: 'bar',
+                    type: isDailyView ? 'line' : 'bar',
                     data: {
                         labels: labelsRitmo,
                         datasets: [{
                             data: dataRitmo,
-                            backgroundColor: '#f59e0b',
-                            borderRadius: 4
+                            borderColor: '#f59e0b',
+                            backgroundColor: isDailyView ? 'rgba(245, 158, 11, 0.15)' : '#f59e0b',
+                            borderWidth: isDailyView ? 2 : undefined,
+                            borderRadius: isDailyView ? 0 : 4,
+                            fill: isDailyView,
+                            tension: 0.25,
+                            pointRadius: isDailyView ? 3 : undefined
                         }]
                     },
                     options: {
