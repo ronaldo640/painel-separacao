@@ -624,11 +624,25 @@
             document.getElementById('kpiCurvaA').innerText = curvaIndisponivel ? 'Selecione um mês' : `${skusA} SKUs (${pctA}%)`;
             updateModalStats();
 
-            // GRÁFICO 1: Ritmo por Dia (ou por Mês, quando a seleção cobre vários meses)
+            // GRÁFICO 1: Ritmo por Dia — granularidade varia com o que está selecionado no
+            // filtro de Mês: "Todos os Meses" por ano (senão vira uma barra por mês em 3 anos
+            // de histórico, ilegível), "Ano Completo" por mês (como antes), um mês específico
+            // por dia (como antes).
             const ritmoSub = document.getElementById('chartRitmoSubtitle');
             let labelsRitmo = [], dataRitmo = [];
 
-            if (isMultiMonth) {
+            if (fMes === 'ALL') {
+                if (ritmoSub) ritmoSub.innerText = 'Consolidado por ano';
+                const yMap = {};
+                filtered.forEach(d => {
+                    if (!d.data) return;
+                    const y = d.data.substring(0, 4);
+                    yMap[y] = (yMap[y] || 0) + (Number(d.qtd) || 1);
+                });
+                const sortedYears = Object.keys(yMap).sort();
+                labelsRitmo = sortedYears;
+                dataRitmo = sortedYears.map(y => yMap[y]);
+            } else if (isMultiMonth) {
                 if (ritmoSub) ritmoSub.innerText = 'Consolidado por mês';
                 const mMap = {};
                 filtered.forEach(d => {
