@@ -190,11 +190,15 @@ export default async function handler(req, res) {
     const f = filiaisAtivas[0];
     const token = process.env[f.env];
     const { ids } = await listPedidoIds(token, dataInicial, dataFinal);
-    const limite = Math.min(ids.length, 120);
+    const limite = Math.min(ids.length, 150);
     const suspeitos = [];
     const cnpjClientes = [];
+    let verificados = 0;
     for (const id of ids.slice(0, limite)) {
+      if (Date.now() >= deadline) break;
+      if (verificados > 0) await sleep(DETAIL_STAGGER_MS);
       const p = await fetchPedidoDetalhe(token, id).catch(() => null);
+      verificados++;
       if (!p) continue;
       const nomeCliente = (p.cliente && p.cliente.nome) || '';
       const tipoPessoa = p.cliente && p.cliente.tipo_pessoa;
@@ -202,7 +206,7 @@ export default async function handler(req, res) {
       else if (tipoPessoa === 'J') cnpjClientes.push({ id: p.id, numero: p.numero, cliente: nomeCliente, cnpj: p.cliente.cpf_cnpj });
     }
     return res.status(200).json({
-      ok: true, filial: f.nome, totalPedidos: ids.length, verificados: limite,
+      ok: true, filial: f.nome, totalPedidos: ids.length, verificados,
       suspeitos, cnpjClientes,
     });
   }
