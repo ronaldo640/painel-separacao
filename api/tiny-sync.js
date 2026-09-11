@@ -183,65 +183,6 @@ export default async function handler(req, res) {
     });
   }
 
-  // Modo de diagnóstico temporário (?debug=pedcli&cnpj=XXXXX): busca pedidos de venda de um
-  // cliente específico (por CNPJ) numa filial, num intervalo amplo — usado pra checar se uma
-  // transferência entre filiais também gera um "pedido de venda" (não só a nota fiscal).
-  if (query.debug === 'pedcli' && query.cnpj) {
-    const f = filiaisAtivas[0];
-    const token = process.env[f.env];
-    const params = new URLSearchParams({ token, formato: 'json', cpf_cnpj: String(query.cnpj) });
-    if (dataInicial) params.set('dataInicial', dataInicial);
-    if (dataFinal) params.set('dataFinal', dataFinal);
-    const resp = await fetch(`https://api.tiny.com.br/api2/pedidos.pesquisa.php?${params.toString()}`);
-    const json = await resp.json();
-    return res.status(200).json({ ok: true, filial: f.nome, retorno: json.retorno });
-  }
-
-  // Modo de diagnóstico temporário (?debug=nf&numero=XXXXX): busca uma nota fiscal específica
-  // direto por número, em todas as filiais ativas, pra inspecionar a estrutura crua de uma
-  // transferência entre filiais que o usuário já sabe que existe.
-  if (query.debug === 'nf' && query.numero) {
-    const achados = [];
-    for (const f of filiaisAtivas) {
-      const token = process.env[f.env];
-      const params = new URLSearchParams({ token, formato: 'json', numero: String(query.numero) });
-      const resp = await fetch(`https://api.tiny.com.br/api2/notas.fiscais.pesquisa.php?${params.toString()}`);
-      const json = await resp.json();
-      const notas = ((json.retorno || {}).notas_fiscais || []).map(item => item.nota_fiscal);
-      if (notas.length > 0) achados.push({ filial: f.nome, notas });
-      await sleep(300);
-    }
-    return res.status(200).json({ ok: true, numero: query.numero, achados });
-  }
-
-  // Modo de diagnóstico temporário (?debug=raw): devolve o pedido cru do Tiny sem gravar nada
-  // — usado só pra descobrir como identificar transferências internas entre filiais (ex:
-  // COMP TRADE vendendo pra PAULICOMP SUL), que duplicam a contagem de separação.
-  if (query.debug === 'raw') {
-    const f = filiaisAtivas[0];
-    const token = process.env[f.env];
-    const { ids } = await listPedidoIds(token, dataInicial, dataFinal);
-    const limite = Math.min(ids.length, 150);
-    const suspeitos = [];
-    const cnpjClientes = [];
-    let verificados = 0;
-    for (const id of ids.slice(0, limite)) {
-      if (Date.now() >= deadline) break;
-      if (verificados > 0) await sleep(DETAIL_STAGGER_MS);
-      const p = await fetchPedidoDetalhe(token, id).catch(() => null);
-      verificados++;
-      if (!p) continue;
-      const nomeCliente = (p.cliente && p.cliente.nome) || '';
-      const tipoPessoa = p.cliente && p.cliente.tipo_pessoa;
-      if (/paulicomp|trade|sul|filial|transfer/i.test(nomeCliente)) suspeitos.push(p);
-      else if (tipoPessoa === 'J') cnpjClientes.push({ id: p.id, numero: p.numero, cliente: nomeCliente, cnpj: p.cliente.cpf_cnpj });
-    }
-    return res.status(200).json({
-      ok: true, filial: f.nome, totalPedidos: ids.length, verificados,
-      suspeitos, cnpjClientes,
-    });
-  }
-
   const sql = neon(process.env.DATABASE_URL);
   try {
     await ensurePickingTable(sql);
