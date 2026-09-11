@@ -183,6 +183,23 @@ export default async function handler(req, res) {
     });
   }
 
+  // Modo de diagnóstico temporário (?debug=nf&numero=XXXXX): busca uma nota fiscal específica
+  // direto por número, em todas as filiais ativas, pra inspecionar a estrutura crua de uma
+  // transferência entre filiais que o usuário já sabe que existe.
+  if (query.debug === 'nf' && query.numero) {
+    const achados = [];
+    for (const f of filiaisAtivas) {
+      const token = process.env[f.env];
+      const params = new URLSearchParams({ token, formato: 'json', numero: String(query.numero) });
+      const resp = await fetch(`https://api.tiny.com.br/api2/notas.fiscais.pesquisa.php?${params.toString()}`);
+      const json = await resp.json();
+      const notas = ((json.retorno || {}).notas_fiscais || []).map(item => item.nota_fiscal);
+      if (notas.length > 0) achados.push({ filial: f.nome, notas });
+      await sleep(300);
+    }
+    return res.status(200).json({ ok: true, numero: query.numero, achados });
+  }
+
   // Modo de diagnóstico temporário (?debug=raw): devolve o pedido cru do Tiny sem gravar nada
   // — usado só pra descobrir como identificar transferências internas entre filiais (ex:
   // COMP TRADE vendendo pra PAULICOMP SUL), que duplicam a contagem de separação.
