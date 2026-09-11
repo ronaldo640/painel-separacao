@@ -183,6 +183,22 @@ export default async function handler(req, res) {
     });
   }
 
+  // Modo de diagnóstico temporário (?debug=raw): devolve o pedido cru do Tiny sem gravar nada
+  // — usado pra entender por que a contagem de hoje da Trade não bate com o que o usuário
+  // sabe pelo próprio Tiny (situação, cliente, tipo de cada pedido).
+  if (query.debug === 'raw') {
+    const f = filiaisAtivas[0];
+    const token = process.env[f.env];
+    const { ids } = await listPedidoIds(token, dataInicial, dataFinal);
+    const amostra = [];
+    for (let i = 0; i < ids.length; i++) {
+      if (i > 0) await sleep(DETAIL_STAGGER_MS);
+      const p = await fetchPedidoDetalhe(token, ids[i]).catch(err => ({ erro: err.message, id: ids[i] }));
+      amostra.push(p);
+    }
+    return res.status(200).json({ ok: true, filial: f.nome, totalPedidos: ids.length, amostra });
+  }
+
   const sql = neon(process.env.DATABASE_URL);
   try {
     await ensurePickingTable(sql);
