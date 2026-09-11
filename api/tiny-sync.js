@@ -183,6 +183,20 @@ export default async function handler(req, res) {
     });
   }
 
+  // Modo de diagnóstico temporário (?debug=pedcli&cnpj=XXXXX): busca pedidos de venda de um
+  // cliente específico (por CNPJ) numa filial, num intervalo amplo — usado pra checar se uma
+  // transferência entre filiais também gera um "pedido de venda" (não só a nota fiscal).
+  if (query.debug === 'pedcli' && query.cnpj) {
+    const f = filiaisAtivas[0];
+    const token = process.env[f.env];
+    const params = new URLSearchParams({ token, formato: 'json', cpf_cnpj: String(query.cnpj) });
+    if (dataInicial) params.set('dataInicial', dataInicial);
+    if (dataFinal) params.set('dataFinal', dataFinal);
+    const resp = await fetch(`https://api.tiny.com.br/api2/pedidos.pesquisa.php?${params.toString()}`);
+    const json = await resp.json();
+    return res.status(200).json({ ok: true, filial: f.nome, retorno: json.retorno });
+  }
+
   // Modo de diagnóstico temporário (?debug=nf&numero=XXXXX): busca uma nota fiscal específica
   // direto por número, em todas as filiais ativas, pra inspecionar a estrutura crua de uma
   // transferência entre filiais que o usuário já sabe que existe.
