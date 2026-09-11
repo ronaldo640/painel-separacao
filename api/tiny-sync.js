@@ -183,6 +183,21 @@ export default async function handler(req, res) {
     });
   }
 
+  // Modo de diagnóstico temporário (?debug=raw): devolve o pedido cru do Tiny sem gravar nada
+  // — usado só pra descobrir como identificar transferências internas entre filiais (ex:
+  // COMP TRADE vendendo pra PAULICOMP SUL), que duplicam a contagem de separação.
+  if (query.debug === 'raw') {
+    const f = filiaisAtivas[0];
+    const token = process.env[f.env];
+    const { ids } = await listPedidoIds(token, dataInicial, dataFinal);
+    const amostra = [];
+    for (const id of ids.slice(0, 8)) {
+      const p = await fetchPedidoDetalhe(token, id).catch(() => null);
+      if (p) amostra.push(p);
+    }
+    return res.status(200).json({ ok: true, filial: f.nome, totalPedidos: ids.length, amostra });
+  }
+
   const sql = neon(process.env.DATABASE_URL);
   try {
     await ensurePickingTable(sql);
