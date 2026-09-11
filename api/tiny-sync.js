@@ -108,6 +108,13 @@ function mapPedidoParaItens(pedido, filialNome) {
   const situacaoTexto = (pedido.situacao || '').toLowerCase();
   if (situacaoTexto.includes('cancelad')) return [];
 
+  // Um pedido "Em aberto" (ou qualquer status anterior à emissão da nota fiscal) ainda não foi
+  // fisicamente separado — é só um pedido na fila. Contar como separação só quando o Tiny já
+  // emitiu a nota fiscal (id_nota_fiscal diferente de "0"/ausente) evita inflar a contagem com
+  // pedidos que ainda vão ser (ou nunca serão) processados.
+  const temNotaFiscal = pedido.id_nota_fiscal && String(pedido.id_nota_fiscal) !== '0';
+  if (!temNotaFiscal) return [];
+
   const dataIso = toIsoDate(pedido.data_pedido);
   if (!dataIso) return [];
 
@@ -183,28 +190,27 @@ export default async function handler(req, res) {
     });
   }
 
-  // Modo de diagnóstico temporário (?debug=raw): devolve o pedido cru do Tiny sem gravar nada
-  // — usado pra entender por que a contagem de hoje da Trade não bate com o que o usuário
-  // sabe pelo próprio Tiny (situação, cliente, tipo de cada pedido).
-  if (query.debug === 'raw') {
-    const f = filiaisAtivas[0];
-    const token = process.env[f.env];
-    const { ids } = await listPedidoIds(token, dataInicial, dataFinal);
-    const amostra = [];
-    for (let i = 0; i < ids.length; i++) {
-      if (i > 0) await sleep(DETAIL_STAGGER_MS);
-      const p = await fetchPedidoDetalhe(token, ids[i]).catch(err => ({ erro: err.message, id: ids[i] }));
-      amostra.push(p);
-    }
-    return res.status(200).json({ ok: true, filial: f.nome, totalPedidos: ids.length, amostra });
-  }
-
   const sql = neon(process.env.DATABASE_URL);
   try {
     await ensurePickingTable(sql);
   } catch (e) {
     return res.status(500).json({ ok: false, error: 'Erro ao preparar tabela: ' + e.message });
   }
+
+  // Remove do Neon qualquer item da janela cujo pedido não apareceu mais como válido nesta
+  // busca (virou "Em aberto" sem nota, foi cancelado, etc.) — mesmo mecanismo usado no painel
+  // de Expedição. Só roda com ?reconciliar=1, pra não mexer sozinho em toda sincronização.
+  async function reconcileFilial(filialNome, dataInicialIso, dataFinalIso, pedidosValidos) {
+    const result = await sql`
+      DELETE FROM picking_records
+      WHERE filial = ${filialNome}
+        AND data BETWEEN ${dataInicialIso} AND ${dataFinalIso}
+        AND NOT (pedido = ANY(${pedidosValidos}))
+      RETURNING id;
+    `;
+    return result.length;
+  }
+  const reconciliar = query.reconciliar === '1' || query.reconciliar === 'true';
 
   const results = await Promise.all(filiaisAtivas.map(async f => {
     const token = process.env[f.env];
@@ -228,6 +234,13 @@ export default async function handler(req, res) {
       const rows = pedidos.filter(Boolean).flatMap(p => mapPedidoParaItens(p, f.nome));
       const inserted = await insertPickingRows(sql, rows);
 
+      let removidos;
+      if (reconciliar && !truncado && !cortadoPorTempo) {
+        removidos = await reconcileFilial(
+          f.nome, toIsoDate(dataInicial), toIsoDate(dataFinal), rows.map(r => r.pedido)
+        );
+      }
+
       return {
         filial: f.nome,
         pedidosEncontrados: ids.length,
@@ -236,6 +249,7 @@ export default async function handler(req, res) {
         erroDetalhe: falhas > 0 ? ultimoErroDetalhe : undefined,
         itensLidos: rows.length,
         inseridos: inserted,
+        removidos,
         truncado: truncado || cortadoPorTempo,
       };
     } catch (err) {
