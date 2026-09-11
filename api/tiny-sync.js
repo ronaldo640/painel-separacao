@@ -190,12 +190,20 @@ export default async function handler(req, res) {
     const f = filiaisAtivas[0];
     const token = process.env[f.env];
     const { ids } = await listPedidoIds(token, dataInicial, dataFinal);
-    const amostra = [];
-    for (const id of ids.slice(0, 8)) {
+    const limite = Math.min(ids.length, 40);
+    const suspeitos = [];
+    const nomesVistos = new Set();
+    for (const id of ids.slice(0, limite)) {
       const p = await fetchPedidoDetalhe(token, id).catch(() => null);
-      if (p) amostra.push(p);
+      if (!p) continue;
+      const nomeCliente = (p.cliente && p.cliente.nome) || '';
+      nomesVistos.add(nomeCliente);
+      if (/paulicomp|trade|sul|filial|transfer/i.test(nomeCliente)) suspeitos.push(p);
     }
-    return res.status(200).json({ ok: true, filial: f.nome, totalPedidos: ids.length, amostra });
+    return res.status(200).json({
+      ok: true, filial: f.nome, totalPedidos: ids.length, verificados: limite,
+      nomesVistos: Array.from(nomesVistos), suspeitos,
+    });
   }
 
   const sql = neon(process.env.DATABASE_URL);
