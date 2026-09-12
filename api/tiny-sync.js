@@ -26,7 +26,12 @@ const TINY_PEDIDO_DETALHE_URL = 'https://api.tiny.com.br/api2/pedido.obter.php';
 const MAX_PAGES = 30; // páginas da busca de pedidos por filial
 const MAX_PEDIDOS_POR_FILIAL = 100; // protege contra timeout/estouro de cota numa única execução (sequencial + retries cabe no maxDuration de 60s)
 const DETAIL_CONCURRENCY = 1; // chamadas pedido.obter.php simultâneas por filial (o Tiny bloqueia com concorrência alta)
-const DETAIL_STAGGER_MS = 300; // espaçamento mínimo entre cada chamada de detalhe
+// Espaçamento mínimo entre cada chamada de detalhe. Em 300ms a sincronização de rotina (cron
+// diário, janela de 3 dias) vinha esbarrando no bloqueio do Tiny com frequência e, sem ninguém
+// notar, o dia ficava sem sincronizar até alguém abrir o painel manualmente. 800ms deixa a
+// rotina mais lenta (ainda bem dentro do limite de 60s da função pra uma janela pequena), mas
+// reduz bem a chance de travar sozinha.
+const DETAIL_STAGGER_MS = 800;
 const DETAIL_MAX_RETRIES = 3; // tentativas extras quando o Tiny responde "API Bloqueada"
 const LOOKBACK_DAYS = 3; // janela padrão da sincronização de rotina (histórico maior = manual)
 
