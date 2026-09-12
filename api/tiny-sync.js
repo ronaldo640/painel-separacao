@@ -33,7 +33,13 @@ const DETAIL_CONCURRENCY = 1; // chamadas pedido.obter.php simultâneas por fili
 // reduz bem a chance de travar sozinha.
 const DETAIL_STAGGER_MS = 800;
 const DETAIL_MAX_RETRIES = 3; // tentativas extras quando o Tiny responde "API Bloqueada"
-const LOOKBACK_DAYS = 3; // janela padrão da sincronização de rotina (histórico maior = manual)
+// Janela padrão da sincronização de rotina (histórico maior = manual, via dataInicial/dataFinal).
+// Era 3 dias, mas na SP (maior volume) isso significa muitos pedidos numa única execução —
+// combinado ao espaçamento maior entre chamadas, não cabia mais dentro do tempo da função e
+// cortava antes de terminar. 1 dia reduz o volume por execução, ao custo de menos margem de
+// segurança caso um dia específico falhe (mas essa falha já para de se acumular antes disso
+// pesar, já que a rotina roda todo dia).
+const LOOKBACK_DAYS = 1;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
