@@ -201,6 +201,19 @@ export default async function handler(req, res) {
     });
   }
 
+  // Modo de diagnóstico temporário (?debug=pedeco&numeroEcommerce=XXXXX): busca o pedido pelo
+  // número do pedido no ecommerce, sem depender de data — usado quando uma nota fiscal não tem
+  // pedido correspondente na janela de datas verificada (pedido pode ter sido criado bem antes
+  // da nota ser emitida).
+  if (query.debug === 'pedeco' && query.numeroEcommerce) {
+    const f = filiaisAtivas[0];
+    const token = process.env[f.env];
+    const params = new URLSearchParams({ token, formato: 'json', numeroPedidoEcommerce: String(query.numeroEcommerce) });
+    const resp = await fetch(`https://api.tiny.com.br/api2/pedidos.pesquisa.php?${params.toString()}`);
+    const json = await resp.json();
+    return res.status(200).json({ ok: true, filial: f.nome, retorno: json.retorno });
+  }
+
   // Modo de diagnóstico temporário (?debug=nf&numero=XXXXX): busca uma nota fiscal específica
   // direto por número, pra investigar uma nota que não tem pedido correspondente encontrado.
   if (query.debug === 'nf' && query.numero) {
