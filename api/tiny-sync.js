@@ -201,6 +201,37 @@ export default async function handler(req, res) {
     });
   }
 
+  // Modo de diagnóstico temporário (?debug=cruzar): pra cada pedido da janela, resolve o
+  // número da nota fiscal vinculada (id_nota_fiscal -> nota.fiscal.obter.php) — usado pra
+  // cruzar contra o painel de Expedição (que só guarda o número da NF) e achar exatamente
+  // onde diverge a contagem entre pedidos separados e notas embaladas.
+  if (query.debug === 'cruzar') {
+    const f = filiaisAtivas[0];
+    const token = process.env[f.env];
+    const { ids } = await listPedidoIds(token, dataInicial, dataFinal);
+    const cruzamento = [];
+    for (let i = 0; i < ids.length; i++) {
+      if (i > 0) await sleep(DETAIL_STAGGER_MS);
+      const p = await fetchPedidoDetalhe(token, ids[i]).catch(() => null);
+      if (!p) continue;
+      const situacaoTexto = (p.situacao || '').toLowerCase();
+      if (situacaoTexto.includes('cancelad')) continue;
+      let nfNumero = null;
+      if (p.id_nota_fiscal && String(p.id_nota_fiscal) !== '0') {
+        await sleep(DETAIL_STAGGER_MS);
+        const params = new URLSearchParams({ token, id: String(p.id_nota_fiscal), formato: 'json' });
+        const resp = await fetch(`https://api.tiny.com.br/api2/nota.fiscal.obter.php?${params.toString()}`).catch(() => null);
+        const json = resp ? await resp.json().catch(() => null) : null;
+        nfNumero = json?.retorno?.nota_fiscal?.numero || null;
+      }
+      cruzamento.push({
+        pedido: p.numero, situacao: p.situacao, id_nota_fiscal: p.id_nota_fiscal || null,
+        nf_numero: nfNumero, itens: (p.itens || []).map(e => ({ sku: e.item?.codigo, qtd: e.item?.quantidade })),
+      });
+    }
+    return res.status(200).json({ ok: true, filial: f.nome, totalPedidos: ids.length, cruzamento });
+  }
+
   const sql = neon(process.env.DATABASE_URL);
   try {
     await ensurePickingTable(sql);
