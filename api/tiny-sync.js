@@ -201,6 +201,18 @@ export default async function handler(req, res) {
     });
   }
 
+  // Modo de diagnóstico temporário (?debug=nf&numero=XXXXX): busca uma nota fiscal específica
+  // direto por número, pra investigar uma nota que não tem pedido correspondente encontrado.
+  if (query.debug === 'nf' && query.numero) {
+    const f = filiaisAtivas[0];
+    const token = process.env[f.env];
+    const params = new URLSearchParams({ token, formato: 'json', numero: String(query.numero) });
+    const resp = await fetch(`https://api.tiny.com.br/api2/notas.fiscais.pesquisa.php?${params.toString()}`);
+    const json = await resp.json();
+    const notas = ((json.retorno || {}).notas_fiscais || []).map(item => item.nota_fiscal);
+    return res.status(200).json({ ok: true, filial: f.nome, notas });
+  }
+
   // Modo de diagnóstico temporário (?debug=cruzar): pra cada pedido da janela, resolve o
   // número da nota fiscal vinculada (id_nota_fiscal -> nota.fiscal.obter.php) — usado pra
   // cruzar contra o painel de Expedição (que só guarda o número da NF) e achar exatamente
