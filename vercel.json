@@ -5,6 +5,7 @@
     }
   },
   "crons": [
-    { "path": "/api/tiny-sync", "schedule": "0 7 * * *" }
+    { "path": "/api/tiny-sync", "schedule": "0 7 * * *" },
+    { "path": "/api/tiny-sync", "schedule": "0 11 * * *" }
   ]
 }
