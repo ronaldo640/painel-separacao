@@ -414,15 +414,30 @@
         // automática) e resolver fora de ordem. Só a última chamada disparada pode aplicar seu
         // resultado — evita que uma busca mais lenta e antiga sobrescreva dados recém-sincronizados.
         let syncRequestSeq = 0;
-        // v2: invalida caches locais salvos antes do backfill histórico completo (evita
-        // que o navegador fique preso mostrando meses antigos incompletos).
-        const PICKING_CACHE_KEY = 'paulicomp_picking_db_v2';
+        // v3: o cache agora guarda só o período padrão (últimos meses), não a base inteira.
+        const PICKING_CACHE_KEY = 'paulicomp_picking_db_v3';
 
-        // A base já passa de 8MB em JSON, acima da cota de localStorage de muitos navegadores
-        // (normalmente 5-10MB por site). Se estourar, isso NUNCA pode impedir o painel de
-        // exibir os dados já carregados na memória — o cache local é só um atalho para abrir
-        // mais rápido na próxima visita, não a fonte de dados em si.
+        // A base passa de 8MB em JSON, então por padrão o painel carrega só os últimos
+        // MESES_PADRAO meses (bem mais leve pro Neon, pra rede e pro navegador). O histórico
+        // completo só é baixado quando alguém escolhe "Carregar histórico completo".
+        const MESES_PADRAO = 12;
+        let historicoCompleto = false;
+        let totalRegistrosNeon = null; // total real da base (header X-Total-Count), mesmo com só parte carregada
+
+        // Primeiro dia do mês de MESES_PADRAO meses atrás (AAAA-MM-DD) — meses inteiros.
+        function dataCorteIso() {
+            const d = new Date();
+            d.setDate(1);
+            d.setMonth(d.getMonth() - MESES_PADRAO);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+        }
+
+        // Se estourar a cota de localStorage (normalmente 5-10MB por site), isso NUNCA pode
+        // impedir o painel de exibir os dados já carregados na memória — o cache local é só
+        // um atalho para abrir mais rápido na próxima visita. Só guarda o período padrão: a
+        // base completa não cabe e, se fosse lida de volta, passaria por "completa" sem ser.
         function saveToLocalCache(db) {
+            if (historicoCompleto) return;
             try {
                 localStorage.setItem(PICKING_CACHE_KEY, JSON.stringify(db));
             } catch (err) {
@@ -485,12 +500,19 @@
             });
             const sortedYears = Object.keys(yearMap).sort().reverse();
             const validValues = new Set(['ALL']);
-            let html = '<option value="ALL">Todos os Meses (Consolidado)</option>';
+            // Com só parte da base carregada, "Todos os Meses" na verdade é "últimos N meses", e
+            // o ano em que o corte cai fica incompleto (não pode se chamar "Ano Completo").
+            const corte = dataCorteIso();
+            const anoIncompleto = (!historicoCompleto && corte.substring(5, 7) !== '01') ? corte.substring(0, 4) : null;
+            let html = `<option value="ALL">${historicoCompleto ? 'Todos os Meses (Consolidado)' : `Últimos ${MESES_PADRAO} meses (padrão)`}</option>`;
+            if (!historicoCompleto) html += '<option value="FULL">⏬ Carregar histórico completo (anos anteriores)</option>';
             sortedYears.forEach(year => {
-                validValues.add(year);
                 const months = Array.from(yearMap[year]).sort().reverse();
                 html += `<optgroup label="${year}">`;
-                html += `<option value="${year}">Ano Completo — ${year}</option>`;
+                if (year !== anoIncompleto) {
+                    validValues.add(year);
+                    html += `<option value="${year}">Ano Completo — ${year}</option>`;
+                }
                 months.forEach(m => {
                     const ym = `${year}-${m}`;
                     validValues.add(ym);
@@ -507,9 +529,11 @@
             const totalEl = document.getElementById('modalTotalRows');
             const monthEl = document.getElementById('modalTotalMonths');
             const headEl = document.getElementById('headerRowCount');
-            if (totalEl) totalEl.innerText = database.length.toLocaleString('pt-BR');
+            // Com só parte da base carregada, mostra o total real do Neon (não o recorte local).
+            const totalExibido = (!historicoCompleto && totalRegistrosNeon) ? totalRegistrosNeon : database.length;
+            if (totalEl) totalEl.innerText = totalExibido.toLocaleString('pt-BR');
             if (monthEl) monthEl.innerText = new Set(database.map(d => d.data ? d.data.substring(0,7) : '')).size;
-            if (headEl) headEl.innerText = database.length.toLocaleString('pt-BR');
+            if (headEl) headEl.innerText = totalExibido.toLocaleString('pt-BR');
         }
 
         function updateDashboard() {
@@ -634,7 +658,9 @@
             // Expedição — barra fica só para as visões consolidadas (ano/mês).
             const isDailyView = !(fMes === 'ALL' || isMultiMonth);
 
-            if (fMes === 'ALL') {
+            // Por ano só faz sentido com a base completa; com só os últimos meses carregados,
+            // "Todos" cai na visão por mês (abaixo).
+            if (fMes === 'ALL' && historicoCompleto) {
                 if (ritmoSub) ritmoSub.innerText = 'Consolidado por ano';
                 const yMap = {};
                 filtered.forEach(d => {
@@ -911,15 +937,23 @@
         // A base já passa de 8MB numa única resposta — em conexões mais lentas ou instáveis
         // a busca pode falhar sem ser um erro real do servidor, então tenta de novo algumas
         // vezes antes de desistir e avisar o usuário.
-        async function syncWithNeon(tentativa = 1, requestId = ++syncRequestSeq) {
+        // `fresh` fura o cache da CDN (usado logo depois de uma sincronização com o Tiny, pra
+        // enxergar o que acabou de entrar). Sem ele, a abertura da página usa a resposta
+        // em cache e não precisa consultar o Neon.
+        async function syncWithNeon(fresh = false, tentativa = 1, requestId = ++syncRequestSeq) {
             const MAX_TENTATIVAS = 3;
             try {
-                const res = await fetch('/api/picking');
+                const params = new URLSearchParams();
+                if (!historicoCompleto) params.set('desde', dataCorteIso());
+                if (fresh) params.set('_', String(Date.now()));
+                const qs = params.toString();
+                const res = await fetch('/api/picking' + (qs ? `?${qs}` : ''));
                 if (res.ok) {
                     const data = await res.json();
                     // Descarta a resposta se uma chamada mais recente a syncWithNeon() já foi
                     // disparada enquanto esta estava em voo — ela venceria a corrida por engano.
                     if (requestId !== syncRequestSeq) return;
+                    totalRegistrosNeon = Number(res.headers.get('X-Total-Count')) || totalRegistrosNeon;
                     if (Array.isArray(data) && data.length > 0) {
                         database = data;
                         saveToLocalCache(database);
@@ -935,9 +969,33 @@
                 if (requestId !== syncRequestSeq) return;
                 if (tentativa < MAX_TENTATIVAS) {
                     await sleep(1500 * tentativa);
-                    return syncWithNeon(tentativa + 1, requestId);
+                    return syncWithNeon(fresh, tentativa + 1, requestId);
                 }
                 showToast("Sem conexão com o Neon após várias tentativas — exibindo dados salvos localmente.", "error");
+            }
+        }
+
+        // Baixa a base inteira (anos anteriores incluídos). Chamado só quando alguém escolhe
+        // "Carregar histórico completo" no filtro de mês.
+        async function carregarHistoricoCompleto() {
+            const requestId = ++syncRequestSeq;
+            showToast("Carregando o histórico completo — pode levar alguns segundos...", "info");
+            try {
+                const res = await fetch('/api/picking');
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                if (requestId !== syncRequestSeq) return false;
+                if (!Array.isArray(data)) throw new Error('resposta inválida');
+                database = data;
+                historicoCompleto = true;
+                totalRegistrosNeon = Number(res.headers.get('X-Total-Count')) || data.length;
+                populatePeriodFilter();
+                showToast(`Histórico completo carregado: ${database.length} registros.`, "success");
+                return true;
+            } catch (err) {
+                console.warn("Falha ao carregar histórico completo:", err);
+                showToast("Não foi possível carregar o histórico completo agora — tente de novo em instantes.", "error");
+                return false;
             }
         }
 
@@ -983,7 +1041,7 @@
                     showToast(`Atenção: alguns pedidos não puderam ser lidos (provável limite da API do Tiny) — ${resumo}. ${comFalhasParciais[0].erroDetalhe || ''}`, "error");
                 }
                 if (json.insertedTotal > 0) {
-                    await syncWithNeon();
+                    await syncWithNeon(true);
                     showToast(`Sincronização concluída: <b>${json.insertedTotal}</b> novo(s) item(ns).`, "success");
                 } else if (erros.length === 0 && comFalhasParciais.length === 0) {
                     showToast("Sincronizado — nenhum item novo no Tiny.", "info");
@@ -997,11 +1055,6 @@
                 if (btn) btn.disabled = false;
                 if (icon) icon.classList.remove('animate-spin');
             }
-        }
-
-        function setupTinyAutoSync() {
-            // Sincroniza sozinho a cada 30 min enquanto alguém estiver com o painel aberto.
-            setInterval(syncTinyAll, 30 * 60 * 1000);
         }
 
         // Geração do Relatório PDF A4 Paisagem
@@ -1066,11 +1119,19 @@
             updateDashboard();
             syncWithNeon();
             syncTinyAll();
-            setupTinyAutoSync();
 
             // Listeners Filtros
-            ['filterMes', 'filterFilial', 'filterCurva'].forEach(id => {
+            ['filterFilial', 'filterCurva'].forEach(id => {
                 document.getElementById(id)?.addEventListener('change', updateDashboard);
+            });
+            // "Carregar histórico completo" não é um período: baixa a base inteira e volta
+            // o filtro pra "Todos os Meses" já com os anos anteriores disponíveis.
+            document.getElementById('filterMes')?.addEventListener('change', async (e) => {
+                if (e.target.value === 'FULL') {
+                    e.target.value = 'ALL';
+                    await carregarHistoricoCompleto();
+                }
+                updateDashboard();
             });
             document.getElementById('searchInput')?.addEventListener('input', updateDashboard);
 
@@ -1103,7 +1164,7 @@
             // Forçar Sincronização
             document.getElementById('btnSyncCloud')?.addEventListener('click', () => {
                 showToast("Sincronizando com Neon...", "info");
-                syncWithNeon();
+                syncWithNeon(true);
             });
 
             // Sincronizar com o Tiny/Olist

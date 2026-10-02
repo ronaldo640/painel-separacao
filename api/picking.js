@@ -74,7 +74,26 @@ export default async function handler(req, res) {
     // BUSCAR DADOS
     if (req.method === 'GET') {
         try {
-            const rows = await sql`SELECT filial, data, data_fmt, pedido, sku, produto, qtd FROM picking_records ORDER BY data DESC, id DESC;`;
+            // ?desde=AAAA-MM-DD limita a resposta a um período recente (o painel só carrega
+            // o histórico completo quando alguém pede). Sem o parâmetro, devolve tudo.
+            const desdeRaw = String(req.query.desde || '');
+            const desde = /^\d{4}-\d{2}-\d{2}$/.test(desdeRaw) ? desdeRaw : null;
+            const rows = await sql`
+                SELECT filial, data, data_fmt, pedido, sku, produto, qtd
+                FROM picking_records
+                WHERE (${desde}::text IS NULL OR data >= ${desde})
+                ORDER BY data DESC, id DESC;
+            `;
+            // Total real da base (o painel mostra no cabeçalho, mesmo com só parte carregada).
+            const [{ total }] = await sql`SELECT COUNT(*)::int AS total FROM picking_records;`;
+            res.setHeader('X-Total-Count', String(total));
+
+            // A resposta é grande e igual pra todo mundo: a CDN da Vercel guarda por alguns
+            // minutos, então várias aberturas de página não viram várias consultas ao Neon.
+            // Quem acabou de sincronizar manda ?_=timestamp pra furar o cache e ver o dado novo.
+            // (Só definido no sucesso, pra um erro do banco nunca ficar em cache.)
+            if (req.query._) res.setHeader('Cache-Control', 'no-store');
+            else res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300, stale-while-revalidate=600');
             return res.status(200).json(rows);
         } catch (error) {
             return res.status(500).json({ error: error.message });
